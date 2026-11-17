@@ -1,5 +1,4 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Pending } from "@/components/brand/pending";
 import { faqs } from "@/lib/site";
 
 export function Faq() {
@@ -16,13 +15,7 @@ export function Faq() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="pb-6 pl-9 text-base leading-relaxed text-tinta/70">
-            {f.a ?? (
-              <span className="flex flex-wrap items-center gap-2">
-                Todavía no hemos publicado tarifas en esta web. Escríbenos y te pasamos el precio
-                para tu caso.
-                <Pending>Precios pendientes</Pending>
-              </span>
-            )}
+            {f.a}
           </AccordionContent>
         </AccordionItem>
       ))}

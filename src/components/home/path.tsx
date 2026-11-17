@@ -1,5 +1,4 @@
 import { Eyebrow } from "@/components/brand/cta";
-import { Pending } from "@/components/brand/pending";
 import { Reveal } from "@/components/reveal";
 
 const pasos = [
@@ -7,26 +6,25 @@ const pasos = [
     n: "01",
     titulo: "Nos cuentas tu idea",
     texto:
-      "Por email o por teléfono, en España o en EE. UU. Sin formularios eternos ni jerga: primero entendemos qué quieres montar.",
+      "Por WhatsApp o con el formulario, desde España o EE. UU. Sin jerga: primero entendemos qué quieres montar.",
   },
   {
     n: "02",
     titulo: "Eliges estado y estructura",
     texto:
-      "New Mexico, Wyoming, Delaware… Te explicamos las diferencias en cristiano y decides con calma: LLC de uno o de dos miembros.",
+      "New Mexico, Wyoming, Delaware… Te explicamos las diferencias en cristiano y decides con calma: LLC de un socio o con varios socios.",
   },
   {
     n: "03",
     titulo: "Tu LLC toma forma",
     texto:
-      "Articles of Organization, EIN y lo necesario para empezar a operar. Te guardamos todo bien ordenado para cuando lo necesites.",
-    pendiente: true,
+      "Preparamos los Articles of Organization —el documento de constitución de la LLC—, el número EIN y lo necesario para empezar a operar. Te lo dejamos ordenado.",
   },
   {
     n: "04",
     titulo: "Cada año, en regla",
     texto:
-      "Llega la presentación de los formularios 1120 y 5472: rellenas un formulario guiado, lo revisamos y lo pasamos a contables autorizados.",
+      "Llega la presentación de los formularios 1120 y 5472: rellenas un formulario guiado, lo revisamos contigo y lo presentamos nosotros.",
   },
 ];
 
@@ -41,10 +39,7 @@ export function Path() {
               Cuatro pasos. <span className="font-serif font-normal italic">Cero agobios.</span>
             </h2>
           </div>
-          <p className="text-lg text-tinta/70 md:col-span-5">
-            Tener una empresa en Estados Unidos no tiene por qué parecer una oposición. Este es el
-            recorrido, de la primera conversación a tu cita anual con el IRS.
-          </p>
+          <p className="text-lg text-tinta/70 md:col-span-5">Tu empresa en Estados Unidos</p>
         </div>
 
         <ol className="relative mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
@@ -73,9 +68,6 @@ export function Path() {
                 </span>
                 <h3 className="mt-6 text-2xl font-bold">{paso.titulo}</h3>
                 <p className="mt-3 leading-relaxed text-tinta/70">{paso.texto}</p>
-                {paso.pendiente && (
-                  <Pending className="mt-4">Alcance por confirmar</Pending>
-                )}
               </div>
             </Reveal>
           ))}

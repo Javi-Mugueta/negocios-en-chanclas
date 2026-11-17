@@ -66,11 +66,14 @@ export function SiteHeader() {
 
         <div className="hidden items-center gap-3 lg:flex">
           <a
-            href={contacto.telefonoESP.href}
+            href={contacto.whatsapp.espana.href}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm font-medium text-tinta/70 transition-colors hover:text-tinta"
           >
             <Phone className="size-4" aria-hidden="true" />
-            {contacto.telefonoESP.visible}
+            <span className="sr-only">WhatsApp España </span>
+            {contacto.whatsapp.espana.visible}
           </a>
           <CtaLink href="/contacto" className="h-10 px-5 text-sm">
             Hablemos
@@ -110,14 +113,21 @@ export function SiteHeader() {
               </nav>
               <div className="mt-auto space-y-3 text-sm text-tinta/70">
                 <p className="font-mono text-xs tracking-widest uppercase">Hablamos en español</p>
-                <a className="block font-medium text-tinta" href={contacto.telefonoESP.href}>
-                  España · {contacto.telefonoESP.visible}
+                <a
+                  className="block font-medium text-tinta"
+                  href={contacto.whatsapp.espana.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp España · {contacto.whatsapp.espana.visible}
                 </a>
-                <a className="block font-medium text-tinta" href={contacto.telefonoUSA.href}>
-                  EE. UU. · {contacto.telefonoUSA.visible}
-                </a>
-                <a className="block font-medium text-tinta" href={`mailto:${contacto.email}`}>
-                  {contacto.email}
+                <a
+                  className="block font-medium text-tinta"
+                  href={contacto.whatsapp.eeuu.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp EE. UU. · {contacto.whatsapp.eeuu.visible}
                 </a>
               </div>
             </div>

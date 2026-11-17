@@ -35,12 +35,8 @@ export function FinalCta({
             <CtaLink href="/empezar" variant="dark">
               Empezar ahora
             </CtaLink>
-            <CtaLink
-              href={`mailto:${contacto.email}`}
-              variant="light"
-              arrow={false}
-            >
-              {contacto.email}
+            <CtaLink href={contacto.whatsapp.espana.href} variant="light" arrow={false}>
+              WhatsApp
             </CtaLink>
           </div>
         </div>

@@ -1,20 +1,16 @@
 /**
  * Contenido central del sitio.
  *
- * Regla de oro: solo figuran como hechos los datos publicados en
- * negociosenchanclas.com. Todo lo demás usa `PENDIENTE` y se muestra en la
- * interfaz con el componente <Pending />, para que nadie lo confunda con
- * información confirmada.
+ * Los números de WhatsApp viven solo en `contacto.whatsapp`.
+ * Para cambiarlos, actualiza `visible` y los dígitos de `href` (wa.me, sin + ni espacios).
  */
 
-export const PENDIENTE = null;
-
 export const contacto = {
-  email: "contacto@negociosenchanclas.com",
-  telefonoUSA: { visible: "+1 505 295 4040", href: "tel:+15052954040" },
-  telefonoESP: { visible: "+34 659 308 119", href: "tel:+34659308119" },
   direccion: ["500 4th St NW, Suite 102 #1272", "Albuquerque, New Mexico 87102", "EE. UU."],
-  horario: PENDIENTE as string | null,
+  whatsapp: {
+    espana: { visible: "+34 659 308 119", href: "https://wa.me/34659308119" },
+    eeuu: { visible: "+1 505 295 4040", href: "https://wa.me/15052954040" },
+  },
 };
 
 export const nav = [
@@ -38,10 +34,8 @@ export type Paquete = {
   nombre: string;
   lema: string;
   servicio: string;
-  precio: string | null;
+  precio?: string;
   destacado?: boolean;
-  /** true si el alcance todavía no está publicado en la web actual. */
-  alcancePendiente?: boolean;
   incluye: string[];
   cta: string;
 };
@@ -52,13 +46,11 @@ export const paquetes: Paquete[] = [
     nombre: "Arranque",
     lema: "Para quien todavía está con la toalla en la mano.",
     servicio: "Constitución de tu LLC",
-    precio: PENDIENTE,
-    alcancePendiente: true,
     incluye: [
       "Ayuda para elegir estado (New Mexico, Wyoming, Delaware…)",
-      "Registro de la LLC y Articles of Organization",
-      "Solicitud del número EIN",
-      "Acompañamiento en español durante el proceso",
+      "Registro de la LLC y los Articles of Organization, el documento de constitución",
+      "Número EIN listo en 48 horas",
+      "Atención en español e inglés durante el proceso",
     ],
     cta: "Quiero empezar",
   },
@@ -67,12 +59,11 @@ export const paquetes: Paquete[] = [
     nombre: "En regla",
     lema: "La cita anual con el IRS, sin sudores.",
     servicio: "Presentación de los formularios 1120 y 5472",
-    precio: PENDIENTE,
     destacado: true,
     incluye: [
-      "Formulario guiado en español para recoger tus datos",
-      "Revisión y entrega a contables autorizados, que presentan los formularios",
-      "LLC de uno o dos miembros",
+      "Formulario guiado para recoger tus datos",
+      "Revisión contigo y presentación de los formularios ante el IRS",
+      "Para LLC de un socio (single member)",
       "Si es tu primera presentación, también se declara el coste de constitución",
       "Pago con tarjeta en el propio formulario",
     ],
@@ -83,13 +74,59 @@ export const paquetes: Paquete[] = [
     nombre: "Cierre tranquilo",
     lema: "Porque cerrar bien también es de buenos negocios.",
     servicio: "Baja de tu LLC con la última presentación",
-    precio: PENDIENTE,
     incluye: [
       "Marcas tu presentación como «Última presentación»",
       "Recogemos los datos del último ejercicio",
-      "Los contables autorizados presentan la declaración final",
+      "Presentamos la declaración final",
     ],
     cta: "Cerrar mi LLC",
+  },
+];
+
+/** Servicios complementarios. Ninguno muestra precio. */
+export const serviciosComplementarios = [
+  {
+    id: "single-member",
+    nombre: "LLC single member",
+    texto: "LLC de un socio: una sola persona constituye la empresa y la dirige.",
+    href: "/empezar?paquete=arranque",
+    cta: "Empezar",
+  },
+  {
+    id: "multi-member",
+    nombre: "LLC con varios socios",
+    texto: "Multi-member: la empresa es de más de un socio. Dejamos claras las reglas desde el primer día.",
+    href: "/contacto?servicio=arranque",
+    cta: "Preguntar",
+  },
+  {
+    id: "banco",
+    nombre: "Apertura guiada de cuenta bancaria",
+    texto: "Un extra: te acompañamos paso a paso en la apertura de la cuenta de la empresa.",
+    href: "/contacto?servicio=otra",
+    cta: "Preguntar",
+  },
+];
+
+/** Comparación de tipos de LLC en la página de servicios. Sin precios. */
+export const tiposLlc = [
+  {
+    id: "single",
+    etiqueta: "Single member",
+    nombre: "LLC de un socio",
+    texto:
+      "Una sola persona constituye la empresa y la dirige. Es la opción habitual de quien emprende por su cuenta. Si no resides en EE. UU., cada año lo habitual es informar al IRS con el formulario 5472 junto a un 1120 pro forma.",
+    href: "/empezar?paquete=arranque",
+    cta: "Empezar",
+  },
+  {
+    id: "multi",
+    etiqueta: "Multi-member",
+    nombre: "LLC con varios socios",
+    texto:
+      "La empresa es de más de una persona. Hay que acordar quién es dueño de qué y cómo se decide. Las obligaciones anuales cambian respecto a la LLC de un socio: lo revisamos contigo antes de empezar.",
+    href: "/contacto?servicio=arranque",
+    cta: "Preguntar",
   },
 ];
 
@@ -163,11 +200,11 @@ export const checklistPresentacion = [
 export const faqs = [
   {
     q: "¿Qué son los formularios 1120 y 5472?",
-    a: "Si tienes una LLC de un solo miembro y no resides en EE. UU., lo habitual es que cada año tengas que informar al IRS de las operaciones entre tú y tu empresa. Se hace con el formulario 5472, que se presenta junto a un formulario 1120 «pro forma». Es una declaración informativa: no suele haber impuesto que pagar, pero sí hay que presentarla.",
+    a: "Si tienes una LLC de un solo socio y no resides en EE. UU., lo habitual es que cada año tengas que informar al IRS de las operaciones entre tú y tu empresa. Se hace con el formulario 5472, que se presenta junto a un formulario 1120 «pro forma». Es una declaración informativa: no suele haber impuesto que pagar, pero sí hay que presentarla.",
   },
   {
     q: "¿Quién presenta mis formularios?",
-    a: "Lo decimos claro: nosotros intermediamos. Recogemos todos tus datos con un formulario guiado, los revisamos contigo y se los entregamos a contables autorizados, que son quienes presentan los formularios ante el IRS.",
+    a: "Lo hacemos todo directamente. Recogemos tus datos con un formulario guiado, los revisamos contigo y presentamos los formularios ante el IRS.",
   },
   {
     q: "Mi LLC no ha tenido actividad este año. ¿Tengo que presentar igual?",
@@ -175,11 +212,11 @@ export const faqs = [
   },
   {
     q: "¿Sacar dinero en un cajero cuenta como transferencia?",
-    a: "Sí. Las disposiciones de efectivo en cajeros desde la cuenta de la empresa se consideran transferencias al miembro, así que súmalas a ese apartado.",
+    a: "Sí. Las disposiciones de efectivo en cajeros desde la cuenta de la empresa se consideran transferencias al socio, así que súmalas a ese apartado.",
   },
   {
     q: "¿Dónde encuentro la fecha de creación de mi LLC?",
-    a: "En tus Articles of Organization, el documento con el que el estado registró tu LLC. Ahí figura la fecha de activación.",
+    a: "En los Articles of Organization, el documento con el que el estado registró tu LLC. Ahí figura la fecha de creación.",
   },
   {
     q: "Quiero cerrar mi LLC. ¿Cómo lo hago?",
@@ -191,10 +228,10 @@ export const faqs = [
   },
   {
     q: "¿Y con corporaciones (C-Corp)?",
-    a: "Todavía no. Las corporaciones llegarán próximamente; por ahora nos centramos en LLC de uno o dos miembros.",
+    a: "Sí. La corporación la preparamos a medida, bajo petición. Cuéntanos qué necesitas y lo vemos contigo.",
   },
   {
     q: "¿Cuánto cuesta?",
-    a: null,
+    a: "Depende del servicio y de tu caso. Empieza el asistente o escríbenos por WhatsApp y te decimos el precio que te corresponde.",
   },
 ];

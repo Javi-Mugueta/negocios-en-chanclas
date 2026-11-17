@@ -6,7 +6,6 @@ import { ArrowLeft, ArrowRight, Check, Copy, Lock, RotateCcw } from "lucide-reac
 import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
-import { Pending } from "@/components/brand/pending";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { checklistPresentacion, estados, estadosDestacados, paquetes } from "@/lib/site";
@@ -70,8 +69,8 @@ const puntos: { value: Punto; titulo: string; texto: string; paquete: string }[]
 ];
 
 const tipos: { value: Tipo; titulo: string; texto: string }[] = [
-  { value: "llc-1", titulo: "LLC de 1 miembro", texto: "Una sola persona al mando." },
-  { value: "llc-2", titulo: "LLC de 2 miembros", texto: "Un proyecto compartido con socio." },
+  { value: "llc-1", titulo: "LLC de un socio", texto: "Single member: una sola persona al mando." },
+  { value: "llc-2", titulo: "LLC con varios socios", texto: "Multi-member: un proyecto compartido." },
 ];
 
 const otrosEstados = estados.filter((e) => !estadosDestacados.includes(e)).sort((a, b) =>
@@ -194,7 +193,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
     ].join("\n");
     try {
       await navigator.clipboard.writeText(texto);
-      toast.success("Resumen copiado. Pégalo en tu email o en el formulario de contacto.");
+      toast.success("Resumen copiado. Pégalo en el formulario de contacto o mándalo por WhatsApp.");
     } catch {
       toast.error("No hemos podido copiarlo. Selecciona el texto a mano.");
     }
@@ -284,7 +283,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
               <Paso
                 headingRef={headingRef}
                 titulo={r.punto === "crear" ? "¿Cómo será tu LLC?" : "¿Cómo es tu LLC?"}
-                texto="Trabajamos con LLC de uno o dos miembros. Las corporaciones llegan pronto."
+                texto="Trabajamos con LLC de un socio y con LLC de varios socios. Si necesitas una corporación, la preparamos a medida."
               >
                 <RadioGroup name="tipo" label="Tipo de empresa" error={errores.tipo}>
                   {tipos.map((t) => (
@@ -298,24 +297,14 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
                       texto={t.texto}
                     />
                   ))}
-                  <OptionCard
-                    name="tipo"
-                    value="corporacion"
-                    checked={false}
-                    onChange={() => {}}
-                    disabled
-                    titulo="Corporación (C-Corp)"
-                    texto="Todavía no la ofrecemos."
-                    badge="Próximamente"
-                  />
                 </RadioGroup>
                 <p className="mt-4 text-sm text-tinta/60">
-                  ¿Te interesa una corporación?{" "}
+                  ¿Necesitas una corporación (C-Corp)? Es un servicio a medida.{" "}
                   <Link
                     href="/contacto?servicio=corporacion"
                     className="font-semibold text-chancla-2 underline underline-offset-4"
                   >
-                    Escríbenos y te avisamos
+                    Cuéntanos tu caso
                   </Link>
                   .
                 </p>
@@ -391,11 +380,6 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
                   </div>
                 )}
 
-                {r.punto === "crear" && (
-                  <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-tinta/60">
-                    Tasa del estado: <Pending>Importe pendiente</Pending>
-                  </p>
-                )}
               </Paso>
             )}
 
@@ -681,8 +665,6 @@ function OptionCard({
   onChange,
   titulo,
   texto,
-  badge,
-  disabled,
   compact,
 }: {
   name: string;
@@ -691,8 +673,6 @@ function OptionCard({
   onChange: () => void;
   titulo: string;
   texto?: string;
-  badge?: string;
-  disabled?: boolean;
   compact?: boolean;
 }) {
   return (
@@ -704,7 +684,6 @@ function OptionCard({
           ? "border-chancla bg-white shadow-[0_12px_30px_-18px_var(--chancla)]"
           : "border-tinta/10 hover:border-tinta/25 hover:bg-white",
         "has-focus-visible:ring-4 has-focus-visible:ring-chancla/30",
-        disabled && "cursor-not-allowed border-dashed opacity-60 hover:border-tinta/10 hover:bg-white/60",
       )}
     >
       <input
@@ -713,7 +692,6 @@ function OptionCard({
         value={value}
         checked={checked}
         onChange={onChange}
-        disabled={disabled}
         data-campo={name}
         className="sr-only"
       />
@@ -729,11 +707,6 @@ function OptionCard({
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2 font-display text-lg font-bold text-tinta">
           {titulo}
-          {badge && (
-            <span className="rounded-full bg-sol px-2 py-0.5 font-sans text-[0.65rem] font-bold tracking-wide text-tinta uppercase">
-              {badge}
-            </span>
-          )}
         </span>
         {texto && <span className="mt-0.5 block text-tinta/65">{texto}</span>}
       </span>
@@ -819,7 +792,7 @@ function Resultado({
 }) {
   if (!paquete) return null;
   const nombrePila = r.nombre.trim().split(/\s+/)[0];
-  const intermediamos = r.punto === "anual" || r.punto === "cerrar";
+  const presentamosNosotros = r.punto === "anual" || r.punto === "cerrar";
 
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -842,19 +815,11 @@ function Resultado({
             {paquete.servicio}. {paquete.lema}
           </p>
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            {paquete.precio ? (
-              <span className="font-display text-3xl font-extrabold">{paquete.precio}</span>
-            ) : (
-              <Pending size="lg">Precio pendiente</Pending>
-            )}
-            {r.punto === "crear" && <Pending size="lg">Tasa estatal pendiente</Pending>}
-          </div>
-
-          {paquete.alcancePendiente && (
-            <Pending className="mt-7">Alcance por confirmar</Pending>
+          {paquete.precio && (
+            <p className="mt-7 font-display text-3xl font-extrabold">{paquete.precio}</p>
           )}
-          <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+          <ul className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {paquete.incluye.map((item) => (
               <li key={item} className="flex gap-3 text-arena/85">
                 <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-chancla text-white">
@@ -865,10 +830,10 @@ function Resultado({
             ))}
           </ul>
 
-          {intermediamos && (
+          {presentamosNosotros && (
             <p className="mt-7 rounded-2xl bg-arena/10 p-4 text-sm text-arena/80">
-              <strong className="text-arena">Solo intermediamos:</strong> recogemos todos tus datos y
-              los entregamos a contables autorizados, que son quienes presentan los formularios.
+              <strong className="text-arena">Lo hacemos todo directamente:</strong> recogemos tus
+              datos, los revisamos contigo y presentamos los formularios.
             </p>
           )}
           {r.punto === "cerrar" && (
@@ -878,7 +843,7 @@ function Resultado({
           )}
           {r.tipo === "llc-2" && r.punto !== "crear" && (
             <p className="mt-3 text-sm text-arena/70">
-              Con dos miembros las obligaciones pueden cambiar: lo revisamos contigo antes de empezar.
+              Con varios socios las obligaciones pueden cambiar: lo revisamos contigo antes de empezar.
             </p>
           )}
 

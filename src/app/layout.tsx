@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     template: "%s · Negocios en Chanclas",
   },
   description:
-    "Tu LLC en Estados Unidos, gestionada en español y sin agobios. Presentación anual de los formularios 1120 y 5472, baja de LLC y acompañamiento humano.",
+    "Tu LLC en Estados Unidos, con atención en español e inglés y sin agobios. Presentación anual de los formularios 1120 y 5472, baja de LLC y acompañamiento humano.",
   applicationName: "Negocios en Chanclas",
   openGraph: {
     title: "Negocios en Chanclas – Gestión LLC´s",

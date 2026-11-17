@@ -24,7 +24,7 @@ export function CtaLink({
   arrow?: boolean;
   className?: string;
 }) {
-  const external = href.startsWith("mailto:") || href.startsWith("tel:");
+  const external = /^(https?:|mailto:|tel:)/.test(href);
   const classes = cn(
     "group/cta inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full px-6 text-[0.95rem] font-semibold transition-all duration-300 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none active:scale-[0.98]",
     variants[variant],
@@ -42,7 +42,11 @@ export function CtaLink({
     </>
   );
   return external ? (
-    <a href={href} className={classes}>
+    <a
+      href={href}
+      className={classes}
+      {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+    >
       {content}
     </a>
   ) : (

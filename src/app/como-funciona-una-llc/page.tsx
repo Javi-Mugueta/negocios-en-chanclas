@@ -52,7 +52,7 @@ const documentos = [
     icon: FileCheck2,
     titulo: "Operating Agreement",
     texto:
-      "Las reglas internas de la LLC: quién es dueño de qué y cómo se decide. Imprescindible si sois dos miembros.",
+      "Las reglas internas de la LLC: quién es dueño de qué y cómo se decide. Imprescindible si sois varios socios.",
   },
   {
     icon: UserCheck,
@@ -128,7 +128,7 @@ export default function ComoFuncionaPage() {
               {[
                 ["No necesitas vivir allí", "Puedes ser miembro de una LLC sin residir en EE. UU. ni tener nacionalidad estadounidense."],
                 ["Poca burocracia", "Sin juntas obligatorias ni actas complicadas. La gestión diaria es sencilla."],
-                ["Flexible", "Puede tener uno o varios miembros, y repartir propiedad y decisiones como acordéis."],
+                ["Flexible", "Puede tener un solo socio o varios, y repartir propiedad y decisiones como acordéis."],
                 ["Puerta al mercado de EE. UU.", "Facilita trabajar con clientes, plataformas y proveedores estadounidenses."],
               ].map(([t, d]) => (
                 <li key={t} className="rounded-3xl border border-tinta/10 bg-card p-6">
@@ -177,7 +177,7 @@ export default function ComoFuncionaPage() {
 
           <Section id="cada-ano" n="05" titulo="Lo que toca cada año">
             <p>
-              Si tienes una LLC de un solo miembro y no resides en EE. UU., lo habitual es que cada
+              Si tienes una LLC de un solo socio y no resides en EE. UU., lo habitual es que cada
               año tengas que presentar el <strong>formulario 5472</strong> junto a un{" "}
               <strong>formulario 1120 pro forma</strong>. Con ellos informas al IRS de las
               operaciones entre tú y tu empresa: lo que aportas, lo que retiras y los gastos de
@@ -217,7 +217,7 @@ export default function ComoFuncionaPage() {
             </div>
             <Callout>
               ¿Un año sin actividad? Escribe «0» en los campos vacíos. Y recuerda: sacar efectivo de
-              la cuenta de la empresa en un cajero cuenta como transferencia al miembro.
+              la cuenta de la empresa en un cajero cuenta como transferencia al socio.
             </Callout>
             <p>
               Además, según el estado, puede haber un informe o una tasa anual estatal. Te lo
