@@ -13,7 +13,7 @@ const opciones = [
   { value: "en-regla", label: "Presentación anual 1120 + 5472" },
   { value: "arranque", label: "Constituir una LLC" },
   { value: "cierre", label: "Cerrar mi LLC" },
-  { value: "corporacion", label: "Corporación (próximamente)" },
+  { value: "corporacion", label: "Corporación (C-Corp) a medida" },
   { value: "web", label: "Web, tienda online o SEO" },
   { value: "otra", label: "Otra cosa" },
 ];
@@ -150,9 +150,14 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
 
       {estado === "error" && (
         <p role="alert" className="mt-5 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">
-          No hemos podido enviar tu mensaje. Prueba de nuevo o escríbenos a{" "}
-          <a className="font-semibold underline" href={`mailto:${contacto.email}`}>
-            {contacto.email}
+          No hemos podido enviar tu mensaje. Prueba de nuevo o escríbenos por{" "}
+          <a
+            className="font-semibold underline"
+            href={contacto.whatsapp.espana.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            WhatsApp
           </a>
           .
         </p>

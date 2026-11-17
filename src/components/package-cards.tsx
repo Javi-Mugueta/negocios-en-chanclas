@@ -1,6 +1,5 @@
 import { Check } from "lucide-react";
 import { CtaLink } from "@/components/brand/cta";
-import { Pending } from "@/components/brand/pending";
 import { Reveal } from "@/components/reveal";
 import { paquetes } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -35,19 +34,12 @@ export function PackageCards() {
             <h3 className="mt-3 text-3xl font-bold">{p.nombre}</h3>
             <p className={cn("mt-2", p.destacado ? "text-arena/70" : "text-tinta/65")}>{p.lema}</p>
 
-            <div className="mt-7 min-h-12">
-              {p.precio ? (
-                <p className="font-display text-4xl font-extrabold">{p.precio}</p>
-              ) : (
-                <Pending size="lg">Precio pendiente</Pending>
-              )}
-            </div>
+            {p.precio && (
+              <p className="mt-7 font-display text-4xl font-extrabold">{p.precio}</p>
+            )}
 
             <div className={cn("my-7 h-px", p.destacado ? "bg-arena/15" : "bg-tinta/10")} />
 
-            {p.alcancePendiente && (
-              <Pending className="mb-4 self-start">Alcance por confirmar</Pending>
-            )}
             <ul className="flex-1 space-y-3.5">
               {p.incluye.map((item) => (
                 <li key={item} className="flex gap-3">

@@ -5,8 +5,8 @@ import { estadosDestacados } from "@/lib/site";
 
 const pasos = [
   { label: "Estado elegido", detail: estadosDestacados.join(" · "), icon: MapPin },
-  { label: "Articles of Organization", detail: "Fecha de creación localizada", icon: FileText },
-  { label: "Número EIN", detail: "Listo para el IRS", icon: Check },
+  { label: "Articles of Organization", detail: "Documento de constitución", icon: FileText },
+  { label: "Número EIN", detail: "Listo en 48 horas", icon: Check },
 ];
 
 export function Hero() {
@@ -27,7 +27,7 @@ export function Hero() {
             <span className="rounded-full bg-tinta px-2 py-0.5 font-mono text-[0.68rem] tracking-widest text-arena uppercase">
               LLC
             </span>
-            Gestión de tu empresa en EE. UU., en español
+            Gestión de tu empresa en EE. UU., en español e inglés
           </p>
 
           <h1 className="mt-7 text-[clamp(2.75rem,7.2vw,6rem)] leading-[0.92] font-extrabold text-tinta animate-in fade-in slide-in-from-bottom-4 duration-700 [animation-delay:80ms] [animation-fill-mode:both]">
@@ -56,7 +56,8 @@ export function Hero() {
 
           <p className="mt-7 max-w-xl text-lg leading-relaxed text-tinta/75 animate-in fade-in slide-in-from-bottom-4 duration-700 [animation-delay:160ms] [animation-fill-mode:both] md:text-xl">
             Te acompañamos con tu LLC de principio a fin: elegir bien, tener los papeles en orden y
-            cumplir cada año con el IRS. En español, con personas de verdad y sin letra pequeña.
+            cumplir cada año con el IRS. Atención en español e inglés, con personas de verdad y sin
+            letra pequeña.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700 [animation-delay:240ms] [animation-fill-mode:both] sm:flex-row">
@@ -67,7 +68,7 @@ export function Hero() {
           </div>
 
           <ul className="mt-12 grid max-w-xl grid-cols-1 gap-x-6 gap-y-3 text-sm text-tinta/70 sm:grid-cols-3">
-            {["Atención en español", "Teléfono en España y EE. UU.", "LLC de 1 o 2 miembros"].map(
+            {["Atención en español e inglés", "WhatsApp en España y EE. UU.", "LLC de un socio o con varios"].map(
               (t) => (
                 <li key={t} className="flex items-center gap-2">
                   <span className="grid size-5 place-items-center rounded-full bg-chancla/15 text-chancla-2">
@@ -142,7 +143,7 @@ function HeroCard() {
             <div className="h-full w-[78%] rounded-full bg-gradient-to-r from-sol to-chancla animate-in slide-in-from-left-full duration-[1600ms] [animation-delay:900ms] [animation-fill-mode:both]" />
           </div>
           <p className="mt-3 text-sm text-arena/70">
-            Datos recogidos y revisados contigo, listos para los contables autorizados.
+            Datos recogidos y revisados contigo. Los presentamos nosotros.
           </p>
         </div>
       </div>

@@ -1,18 +1,17 @@
-import { CreditCard, Handshake, Languages, MapPin, MessageSquareQuote } from "lucide-react";
+import { CreditCard, Handshake, Languages, MapPin } from "lucide-react";
 import { Eyebrow } from "@/components/brand/cta";
-import { Pending } from "@/components/brand/pending";
 import { Reveal } from "@/components/reveal";
 
 const pilares = [
   {
     icon: Languages,
-    titulo: "Todo en español",
-    texto: "Formularios, explicaciones y llamadas. El inglés lo dejamos para el IRS.",
+    titulo: "Atención en español e inglés",
+    texto: "Formularios, explicaciones y llamadas, en el idioma que te resulte más cómodo.",
   },
   {
     icon: MapPin,
     titulo: "Un pie en cada orilla",
-    texto: "Dirección en Albuquerque, New Mexico, y teléfono en España y en EE. UU.",
+    texto: "Dirección en Albuquerque, New Mexico, y WhatsApp en España y en EE. UU.",
   },
   {
     icon: CreditCard,
@@ -46,12 +45,12 @@ export function Honesty() {
             <div className="relative rounded-[2rem] bg-arena p-8 text-tinta md:p-10">
               <Handshake className="size-9 text-chancla" aria-hidden="true" />
               <p className="mt-6 font-display text-2xl leading-snug font-bold md:text-3xl">
-                «Solo intermediamos: recogemos todos tus datos y los entregamos a contables
-                autorizados, que son quienes presentan los formularios.»
+                «Lo hacemos todo directamente: recogemos tus datos, los revisamos contigo y
+                presentamos los formularios.»
               </p>
               <p className="mt-5 text-tinta/65">
-                Lo dejamos por escrito en cada presentación. Tú sabes en todo momento quién hace
-                qué, y nosotros nos aseguramos de que no falte ni un dato.
+                Lo dejamos por escrito en cada presentación. Sabes en todo momento qué estamos
+                haciendo, y nos aseguramos de que no falte ni un dato.
               </p>
             </div>
           </Reveal>
@@ -67,15 +66,6 @@ export function Honesty() {
           ))}
         </ul>
 
-        <div className="mt-6 flex flex-col items-start gap-4 rounded-[2rem] border border-dashed border-arena/25 p-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <MessageSquareQuote className="size-8 shrink-0 text-arena/40" aria-hidden="true" />
-            <p className="text-arena/70">
-              Aquí irán opiniones reales de clientes de Negocios en Chanclas.
-            </p>
-          </div>
-          <Pending>Reseñas pendientes</Pending>
-        </div>
       </div>
     </section>
   );

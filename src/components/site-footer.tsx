@@ -46,18 +46,23 @@ export function SiteFooter() {
             </h2>
             <ul className="mt-5 space-y-3 text-arena/85">
               <li>
-                <a className="transition hover:text-chancla" href={`mailto:${contacto.email}`}>
-                  {contacto.email}
+                <a
+                  className="transition hover:text-chancla"
+                  href={contacto.whatsapp.espana.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp España · {contacto.whatsapp.espana.visible}
                 </a>
               </li>
               <li>
-                <a className="transition hover:text-chancla" href={contacto.telefonoESP.href}>
-                  España · {contacto.telefonoESP.visible}
-                </a>
-              </li>
-              <li>
-                <a className="transition hover:text-chancla" href={contacto.telefonoUSA.href}>
-                  EE. UU. · {contacto.telefonoUSA.visible}
+                <a
+                  className="transition hover:text-chancla"
+                  href={contacto.whatsapp.eeuu.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp EE. UU. · {contacto.whatsapp.eeuu.visible}
                 </a>
               </li>
               <li className="pt-2 text-sm text-arena/60">

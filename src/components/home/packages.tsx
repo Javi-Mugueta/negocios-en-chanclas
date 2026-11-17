@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Eyebrow } from "@/components/brand/cta";
+import { ComplementaryServices } from "@/components/complementary-services";
 import { PackageCards } from "@/components/package-cards";
 
 export function Packages() {
@@ -21,6 +22,8 @@ export function Packages() {
           <PackageCards />
         </div>
 
+        <ComplementaryServices />
+
         <p className="mt-12 text-center text-tinta/75">
           ¿No sabes cuál te toca?{" "}
           <Link
@@ -32,13 +35,13 @@ export function Packages() {
           .
         </p>
         <p className="mt-3 text-center text-tinta/65">
-          ¿Tienes una corporación? Estamos en ello: llegan{" "}
-          <span className="font-semibold text-tinta">próximamente</span>.{" "}
+          ¿Necesitas una corporación (C-Corp)? La preparamos{" "}
+          <span className="font-semibold text-tinta">a medida</span>.{" "}
           <Link
-            href="/servicios"
+            href="/contacto?servicio=corporacion"
             className="font-semibold text-chancla-2 underline decoration-chancla/40 underline-offset-4 transition hover:decoration-chancla"
           >
-            Ver todos los servicios
+            Cuéntanos tu caso
           </Link>
         </p>
       </div>

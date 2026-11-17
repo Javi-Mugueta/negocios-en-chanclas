@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { MapPin, MessageCircle } from "lucide-react";
 import { Eyebrow } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
-import { Pending } from "@/components/brand/pending";
 import { ContactForm } from "@/components/contact-form";
 import { contacto } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Contacto",
   description:
-    "Habla con Negocios en Chanclas por teléfono en España o EE. UU., por email o con el formulario. Te respondemos en español.",
+    "Habla con Negocios en Chanclas por WhatsApp (España o EE. UU.) o con el formulario. Te respondemos en español o en inglés.",
 };
 
 export default async function ContactoPage({ searchParams }: PageProps<"/contacto">) {
@@ -30,23 +29,28 @@ export default async function ContactoPage({ searchParams }: PageProps<"/contact
           </h1>
           <p className="mt-6 max-w-md text-lg text-tinta/70">
             Cuéntanos en qué punto está tu LLC (o tu idea) y te decimos cómo podemos ayudarte. Te
-            responde una persona, en español.
+            responde una persona, en español o en inglés.
           </p>
 
           <ul className="mt-10 space-y-6">
-            <ContactRow icon={Phone} label="Teléfono España">
-              <a className="hover:text-chancla-2" href={contacto.telefonoESP.href}>
-                {contacto.telefonoESP.visible}
+            <ContactRow icon={MessageCircle} label="WhatsApp España">
+              <a
+                className="hover:text-chancla-2"
+                href={contacto.whatsapp.espana.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {contacto.whatsapp.espana.visible}
               </a>
             </ContactRow>
-            <ContactRow icon={Phone} label="Teléfono EE. UU.">
-              <a className="hover:text-chancla-2" href={contacto.telefonoUSA.href}>
-                {contacto.telefonoUSA.visible}
-              </a>
-            </ContactRow>
-            <ContactRow icon={Mail} label="Email">
-              <a className="break-all hover:text-chancla-2" href={`mailto:${contacto.email}`}>
-                {contacto.email}
+            <ContactRow icon={MessageCircle} label="WhatsApp EE. UU.">
+              <a
+                className="hover:text-chancla-2"
+                href={contacto.whatsapp.eeuu.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {contacto.whatsapp.eeuu.visible}
               </a>
             </ContactRow>
             <ContactRow icon={MapPin} label="Dirección en EE. UU.">
@@ -59,11 +63,6 @@ export default async function ContactoPage({ searchParams }: PageProps<"/contact
               </span>
             </ContactRow>
           </ul>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3 text-sm text-tinta/60">
-            Horario:
-            {contacto.horario ?? <Pending>Horario pendiente</Pending>}
-          </div>
         </div>
 
         <div className="relative lg:col-span-7">

@@ -7,15 +7,14 @@ type Entidad = {
   tab: string;
   titulo: string;
   resumen: string;
-  proximamente?: boolean;
   filas: { k: string; v: string }[];
 };
 
 const entidades: Entidad[] = [
   {
     id: "llc-1",
-    tab: "LLC de 1 miembro",
-    titulo: "La LLC de un solo miembro",
+    tab: "LLC de un socio",
+    titulo: "LLC de un socio (single member)",
     resumen:
       "La favorita de quien emprende por su cuenta: sencilla de montar, ligera de mantener y con tu patrimonio personal separado del de la empresa.",
     filas: [
@@ -28,26 +27,26 @@ const entidades: Entidad[] = [
         k: "Qué presentar cada año",
         v: "Si no resides en EE. UU., normalmente el formulario 5472 junto a un 1120 pro forma, con las operaciones entre tú y tu LLC.",
       },
-      { k: "Con nosotros", v: "Preparamos tu presentación anual 1120 + 5472 de principio a fin." },
+      { k: "Con nosotros", v: "Constituimos la LLC, pedimos el EIN y presentamos el 1120 + 5472. Lo hacemos todo directamente." },
     ],
   },
   {
-    id: "llc-2",
-    tab: "LLC de 2 miembros",
-    titulo: "La LLC con socio",
+    id: "llc-multi",
+    tab: "LLC con varios socios",
+    titulo: "LLC con varios socios (multi-member)",
     resumen:
-      "Misma flexibilidad, pero a dos. Ideal cuando el proyecto es compartido y queréis reglas claras desde el primer día.",
+      "La misma flexibilidad, compartida. Ideal cuando el proyecto es de más de una persona y queréis reglas claras desde el primer día.",
     filas: [
       { k: "Para quién", v: "Socios que emprenden juntos y quieren repartir propiedad y decisiones." },
       {
         k: "Cómo la ve el IRS",
-        v: "Por defecto, como una sociedad (partnership). Las obligaciones cambian respecto a la LLC de un miembro.",
+        v: "Por defecto, como una sociedad (partnership). Las obligaciones cambian respecto a la LLC de un socio.",
       },
       {
         k: "Qué presentar cada año",
         v: "Depende de cómo esté estructurada y de dónde residáis. Lo revisamos contigo antes de empezar.",
       },
-      { k: "Con nosotros", v: "Nuestro formulario de presentación admite LLC de uno o dos miembros." },
+      { k: "Con nosotros", v: "La constituimos con vosotros y os acompañamos en lo que toque presentar cada año." },
     ],
   },
   {
@@ -56,7 +55,6 @@ const entidades: Entidad[] = [
     titulo: "La corporación (C-Corp)",
     resumen:
       "La estructura clásica para crecer con inversores. Más formalidades, más papeleo y una fiscalidad propia.",
-    proximamente: true,
     filas: [
       { k: "Para quién", v: "Proyectos que buscan inversión o planean emitir acciones." },
       {
@@ -67,7 +65,7 @@ const entidades: Entidad[] = [
         k: "Qué presentar cada año",
         v: "Su propia declaración de sociedades, además de las obligaciones del estado.",
       },
-      { k: "Con nosotros", v: "Próximamente. Si te interesa, escríbenos y te avisamos." },
+      { k: "Con nosotros", v: "Servicio a medida, bajo petición. Cuéntanos el proyecto y lo preparamos contigo." },
     ],
   },
 ];
@@ -96,11 +94,6 @@ export function Entities() {
                 className="h-auto flex-none rounded-full px-4 py-2.5 text-sm font-semibold text-tinta/70 data-active:bg-tinta data-active:text-arena data-active:shadow-none sm:px-5"
               >
                 {e.tab}
-                {e.proximamente && (
-                  <span className="ml-1.5 rounded-full bg-chancla/15 px-1.5 py-0.5 text-[0.65rem] font-semibold text-chancla-2 uppercase">
-                    Pronto
-                  </span>
-                )}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -108,27 +101,24 @@ export function Entities() {
           {entidades.map((e) => (
             <TabsContent key={e.id} value={e.id} className="mt-8 text-base">
               <div className="grid overflow-hidden rounded-[2rem] border border-tinta/10 bg-card grid-cols-1 lg:grid-cols-12">
-                <div
-                  className={cn(
-                    "relative flex flex-col justify-between gap-10 p-8 md:p-10 lg:col-span-5",
-                    e.proximamente ? "bg-tinta-2 text-arena" : "bg-tinta text-arena",
-                  )}
-                >
+                <div className="relative flex flex-col justify-between gap-10 bg-tinta p-8 text-arena md:p-10 lg:col-span-5">
                   <div>
-                    {e.proximamente && (
+                    {e.id === "corp" && (
                       <span className="inline-block rounded-full bg-sol px-3 py-1 text-xs font-bold text-tinta uppercase">
-                        Próximamente
+                        A medida
                       </span>
                     )}
-                    <h3 className="mt-4 text-3xl font-bold md:text-4xl">{e.titulo}</h3>
+                    <h3 className={cn("text-3xl font-bold md:text-4xl", e.id === "corp" && "mt-4")}>
+                      {e.titulo}
+                    </h3>
                     <p className="mt-4 text-arena/75">{e.resumen}</p>
                   </div>
                   <CtaLink
-                    href={e.proximamente ? "/contacto" : "/como-funciona-una-llc"}
+                    href={e.id === "corp" ? "/contacto?servicio=corporacion" : "/como-funciona-una-llc"}
                     variant="light"
                     className="self-start"
                   >
-                    {e.proximamente ? "Avísame" : "Entender la LLC"}
+                    {e.id === "corp" ? "Pedirla a medida" : "Entender la LLC"}
                   </CtaLink>
                 </div>
                 <dl className="divide-y divide-tinta/10 lg:col-span-7">

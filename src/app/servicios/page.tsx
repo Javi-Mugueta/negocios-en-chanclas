@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ClipboardList, SearchCheck, Send } from "lucide-react";
 import { CtaLink, Eyebrow } from "@/components/brand/cta";
 import { FinalCta } from "@/components/final-cta";
 import { PackageCards } from "@/components/package-cards";
 import { Reveal } from "@/components/reveal";
-import { checklistPresentacion, serviciosDigitales } from "@/lib/site";
+import { checklistPresentacion, serviciosComplementarios, serviciosDigitales, tiposLlc } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Servicios",
@@ -25,8 +26,8 @@ const flujo = [
   },
   {
     icon: Send,
-    titulo: "Contables autorizados lo presentan",
-    texto: "Les entregamos tu expediente completo y son ellos quienes presentan los formularios ante el IRS.",
+    titulo: "Lo presentamos nosotros",
+    texto: "Preparamos tu expediente y presentamos los formularios ante el IRS. Lo hacemos todo directamente.",
   },
 ];
 
@@ -54,9 +55,45 @@ export default function ServiciosPage() {
       <section className="py-16 md:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <PackageCards />
-          <p className="mt-10 text-center text-sm text-tinta/60">
-            Corporaciones (C-Corp): próximamente. Los precios marcados como pendientes se
-            publicarán en cuanto estén confirmados.
+        </div>
+      </section>
+
+      <section className="pb-20 md:pb-28">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="max-w-3xl">
+            <Eyebrow>LLC</Eyebrow>
+            <h2 className="mt-4 text-4xl leading-[1.02] font-bold md:text-6xl">
+              De un socio,{" "}
+              <span className="font-serif font-normal italic">o de varios.</span>
+            </h2>
+            <p className="mt-5 text-lg text-tinta/70">
+              No es lo mismo una LLC single member que una LLC con varios socios. El papeleo anual
+              cambia, y lo vemos antes de empezar.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-5 md:grid-cols-2">
+            {tiposLlc.map((t) => (
+              <article key={t.id} className="flex flex-col rounded-[2rem] border border-tinta/10 bg-card p-8">
+                <p className="font-mono text-xs tracking-[0.16em] text-chancla-2 uppercase">{t.etiqueta}</p>
+                <h3 className="mt-3 text-3xl font-bold">{t.nombre}</h3>
+                <p className="mt-4 flex-1 leading-relaxed text-tinta/70">{t.texto}</p>
+                <CtaLink href={t.href} variant="dark" className="mt-8 self-start">
+                  {t.cta}
+                </CtaLink>
+              </article>
+            ))}
+          </div>
+          <AperturaBancaria />
+          <p className="mt-8 text-tinta/70">
+            Las corporaciones (C-Corp) las preparamos <strong className="text-tinta">a medida</strong>,
+            bajo petición.{" "}
+            <Link
+              href="/contacto?servicio=corporacion"
+              className="font-semibold text-chancla-2 underline decoration-chancla/40 underline-offset-4"
+            >
+              Cuéntanos tu caso
+            </Link>
+            .
           </p>
         </div>
       </section>
@@ -72,8 +109,8 @@ export default function ServiciosPage() {
               </h2>
             </div>
             <p className="text-lg text-arena/70 md:col-span-5">
-              Lo importante, por delante: solo intermediamos. Recogemos y revisamos tus datos; la
-              presentación la hacen contables autorizados.
+              Lo hacemos todo directamente: recogemos tus datos, los revisamos contigo y presentamos
+              los formularios.
             </p>
           </div>
 
@@ -172,5 +209,22 @@ export default function ServiciosPage() {
 
       <FinalCta titulo="¿Hablamos de lo tuyo?" subtitulo="Sin compromiso y sin prisas." />
     </>
+  );
+}
+
+function AperturaBancaria() {
+  const banco = serviciosComplementarios.find((s) => s.id === "banco");
+  if (!banco) return null;
+  return (
+    <article className="mt-5 flex flex-col gap-6 rounded-[2rem] bg-arena-2 p-8 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p className="font-mono text-xs tracking-[0.16em] text-chancla-2 uppercase">Extra</p>
+        <h3 className="mt-2 text-2xl font-bold">{banco.nombre}</h3>
+        <p className="mt-2 max-w-2xl text-tinta/70">{banco.texto}</p>
+      </div>
+      <CtaLink href={banco.href} variant="dark" className="shrink-0">
+        {banco.cta}
+      </CtaLink>
+    </article>
   );
 }
