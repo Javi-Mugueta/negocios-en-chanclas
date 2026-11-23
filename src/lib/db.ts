@@ -79,6 +79,7 @@ export function getDb(): BaseDatos {
   const sql = getSql();
   return {
     ...adaptar(sql),
-    transaction: (fn) => sql.begin(async (tx) => fn(adaptar(tx as unknown as Sql))),
+    transaction: (fn) =>
+      sql.begin(async (tx) => fn(adaptar(tx as unknown as Sql))) as ReturnType<typeof fn>,
   };
 }
