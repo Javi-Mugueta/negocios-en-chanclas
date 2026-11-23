@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Honeypot } from "@/components/honeypot";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { leerAtribucion } from "@/lib/atribucion";
 import { contacto } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +28,7 @@ const field =
 export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [aviso, setAviso] = useState("");
   const inicial = opciones.some((o) => o.value === servicioInicial) ? servicioInicial : "en-regla";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -34,6 +37,7 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
     const data = new FormData(form);
     setEstado("sending");
     setErrors({});
+    setAviso("");
     try {
       const res = await fetch("/api/contacto", {
         method: "POST",
@@ -45,13 +49,20 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
           servicio: data.get("servicio"),
           mensaje: data.get("mensaje"),
           consentimiento: data.get("consentimiento") === "on",
+          nec_hp: data.get("nec_hp") ?? "",
+          ...leerAtribucion(),
         }),
       });
-      const json = await res.json();
+      const json = (await res.json().catch(() => ({}))) as { errors?: Record<string, string>; error?: string };
       if (!res.ok) {
-        setErrors(json.errors ?? {});
-        setEstado("idle");
-        toast.error("Revisa los campos marcados, porfa.");
+        if (json.errors && Object.keys(json.errors).length > 0) {
+          setErrors(json.errors);
+          setEstado("idle");
+          toast.error("Revisa los campos marcados, porfa.");
+          return;
+        }
+        setAviso(json.error ?? "");
+        setEstado("error");
         return;
       }
       setEstado("sent");
@@ -87,8 +98,9 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
     <form
       onSubmit={onSubmit}
       noValidate
-      className="rounded-[2rem] border border-tinta/10 bg-card p-6 shadow-[0_30px_60px_-40px_rgba(19,41,61,0.4)] sm:p-9"
+      className="relative rounded-[2rem] border border-tinta/10 bg-card p-6 shadow-[0_30px_60px_-40px_rgba(19,41,61,0.4)] sm:p-9"
     >
+      <Honeypot />
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Nombre" name="nombre" error={errors.nombre}>
           <Input id="nombre" name="nombre" autoComplete="name" required className={field} aria-invalid={!!errors.nombre} />
@@ -150,14 +162,14 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
 
       {estado === "error" && (
         <p role="alert" className="mt-5 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">
-          No hemos podido enviar tu mensaje. Prueba de nuevo o escríbenos por{" "}
+          {aviso || "No hemos podido guardar tu mensaje."}{" "}
           <a
             className="font-semibold underline"
             href={contacto.whatsapp.espana.href}
             target="_blank"
             rel="noopener noreferrer"
           >
-            WhatsApp
+            Abrir WhatsApp
           </a>
           .
         </p>

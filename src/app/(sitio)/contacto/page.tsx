@@ -11,7 +11,11 @@ export const metadata: Metadata = {
     "Habla con Negocios en Chanclas por WhatsApp (España o EE. UU.) o con el formulario. Te respondemos en español o en inglés.",
 };
 
-export default async function ContactoPage({ searchParams }: PageProps<"/contacto">) {
+export default async function ContactoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ servicio?: string }>;
+}) {
   const { servicio } = await searchParams;
 
   return (

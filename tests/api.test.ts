@@ -1,0 +1,246 @@
+import { beforeAll, beforeEach, expect, test, vi } from "vitest";
+import bcrypt from "bcryptjs";
+import type { BaseDatos } from "@/lib/db";
+import { crearDbPrueba, vaciar } from "./db";
+
+process.env.NEC_IP_SALT = "sal-de-prueba-nec";
+process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
+process.env.NEC_ADMIN_USER = "nec";
+
+const estado = vi.hoisted(() => ({ db: null as BaseDatos | null }));
+
+vi.mock("@/lib/db", () => ({
+  getDb: () => {
+    if (!estado.db) throw new Error("sin base de prueba");
+    return estado.db;
+  },
+}));
+
+const { POST: contacto } = await import("@/app/api/contacto/route");
+const { POST: empezar } = await import("@/app/api/empezar/route");
+const { POST: login } = await import("@/app/api/panel/login/route");
+const { POST: logout } = await import("@/app/api/panel/logout/route");
+const { GET: listar } = await import("@/app/api/panel/leads/route");
+const { GET: exportar } = await import("@/app/api/panel/leads/export/route");
+const detalle = await import("@/app/api/panel/leads/[id]/route");
+const { verificarToken } = await import("@/lib/sesion");
+
+beforeAll(async () => {
+  process.env.NEC_ADMIN_PASSWORD_HASH = bcrypt.hashSync("clave-panel", 4);
+  estado.db = await crearDbPrueba();
+});
+
+beforeEach(async () => {
+  if (estado.db) await vaciar(estado.db);
+});
+
+function post(ruta: string, body: unknown, headers: Record<string, string> = {}) {
+  return new Request(`https://negociosenchanclas.com${ruta}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-forwarded-for": "203.0.113.8",
+      host: "negociosenchanclas.com",
+      ...headers,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+const contactoOk = {
+  nombre: "Ana Pérez",
+  email: "ana@example.com",
+  telefono: "659308119",
+  servicio: "en-regla",
+  mensaje: "Tengo una LLC en Wyoming.",
+  consentimiento: true,
+  pagina: "/contacto",
+  utm: { utm_source: "boletin" },
+};
+
+async function entrar() {
+  const res = await login(post("/api/panel/login", { usuario: "nec", clave: "clave-panel" }));
+  expect(res.status).toBe(200);
+  const cookie = res.headers.get("set-cookie") ?? "";
+  const token = cookie.split(";")[0]?.split("=")[1] ?? "";
+  const sesion = await verificarToken(token);
+  return { cookie: cookie.split(";")[0], csrf: sesion?.csrf ?? "" };
+}
+
+test("contacto guarda la consulta y el evento, y no la IP", async () => {
+  const res = await contacto(post("/api/contacto", contactoOk, { "user-agent": "Prueba" }));
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ ok: true });
+  const filas = await estado.db!.query("select email, consentimiento_version, ip_hash, utm, origen from nec.leads");
+  expect(filas).toHaveLength(1);
+  expect(filas[0].email).toBe("ana@example.com");
+  expect(filas[0].consentimiento_version).toBe("2026-11-23");
+  expect(filas[0].origen).toBe("contacto");
+  expect(String(filas[0].ip_hash)).not.toContain("203.0.113.8");
+  const utm = filas[0].utm;
+  expect(JSON.stringify(utm)).toContain("boletin");
+  const eventos = await estado.db!.query("select accion from nec.lead_eventos");
+  expect(eventos[0].accion).toBe("creado");
+});
+
+test("contacto no guarda el señuelo y valida el consentimiento", async () => {
+  const hueco = await contacto(post("/api/contacto", { ...contactoOk, nec_hp: "http://spam.test" }));
+  expect(hueco.status).toBe(200);
+  const vacio = await estado.db!.query("select id from nec.leads");
+  expect(vacio).toHaveLength(0);
+
+  const sin = await contacto(post("/api/contacto", { ...contactoOk, consentimiento: false }));
+  expect(sin.status).toBe(422);
+  const json = await sin.json();
+  expect(json.errors.consentimiento).toBeTruthy();
+});
+
+test("contacto limita a 5 envíos por IP en la ventana", async () => {
+  for (let i = 0; i < 5; i += 1) {
+    const res = await contacto(post("/api/contacto", { ...contactoOk, email: `ana${i}@example.com` }));
+    expect(res.status).toBe(200);
+  }
+  const sexto = await contacto(post("/api/contacto", contactoOk));
+  expect(sexto.status).toBe(429);
+  const filas = await estado.db!.query("select id from nec.leads");
+  expect(filas).toHaveLength(5);
+});
+
+test("el asistente guarda las respuestas en datos", async () => {
+  const res = await empezar(
+    post("/api/empezar", {
+      punto: "crear",
+      tipo: "llc-1",
+      estado: "no-se",
+      sinNombre: true,
+      nombre: "Luis",
+      email: "luis@example.com",
+      consentimiento: true,
+      pagina: "/empezar",
+    }),
+  );
+  expect(res.status).toBe(200);
+  const filas = await estado.db!.query("select origen, servicio, datos, mensaje from nec.leads");
+  expect(filas[0].origen).toBe("empezar");
+  expect(filas[0].servicio).toBe("arranque");
+  expect(filas[0].mensaje).toBeNull();
+  expect(JSON.stringify(filas[0].datos)).toContain("Aún por decidir");
+});
+
+test("el acceso falla, se bloquea y luego deja entrar", async () => {
+  for (let i = 0; i < 5; i += 1) {
+    const res = await login(post("/api/panel/login", { usuario: "nec", clave: "mal" }));
+    expect(res.status).toBe(401);
+  }
+  const bloqueado = await login(post("/api/panel/login", { usuario: "nec", clave: "clave-panel" }));
+  expect(bloqueado.status).toBe(429);
+  const accesos = await estado.db!.query("select resultado from nec.accesos_panel order by id");
+  expect(accesos.map((fila) => fila.resultado)).toEqual(["fallo", "fallo", "fallo", "fallo", "fallo", "bloqueado"]);
+
+  await vaciar(estado.db!);
+  const { cookie, csrf } = await entrar();
+  expect(csrf.length).toBeGreaterThan(16);
+
+  const anonimo = await listar(new Request("https://negociosenchanclas.com/api/panel/leads"));
+  expect(anonimo.status).toBe(401);
+
+  await contacto(post("/api/contacto", contactoOk));
+  const lista = await listar(
+    new Request("https://negociosenchanclas.com/api/panel/leads?q=ana@example", {
+      headers: { cookie },
+    }),
+  );
+  expect(lista.status).toBe(200);
+  const json = await lista.json();
+  expect(json.total).toBe(1);
+  expect(json.leads[0].email).toBe("ana@example.com");
+  expect(json.contadores.hoy).toBe(1);
+
+  const id = json.leads[0].id as string;
+  const sinCsrf = await detalle.PATCH(
+    new Request(`https://negociosenchanclas.com/api/panel/leads/${id}`, {
+      method: "PATCH",
+      headers: { cookie, "content-type": "application/json", host: "negociosenchanclas.com" },
+      body: JSON.stringify({ estado: "contactado" }),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+  expect(sinCsrf.status).toBe(403);
+
+  const origenMalo = await detalle.PATCH(
+    new Request(`https://negociosenchanclas.com/api/panel/leads/${id}`, {
+      method: "PATCH",
+      headers: {
+        cookie,
+        "content-type": "application/json",
+        "x-nec-csrf": csrf,
+        origin: "https://otro.example",
+        host: "negociosenchanclas.com",
+      },
+      body: JSON.stringify({ estado: "contactado" }),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+  expect(origenMalo.status).toBe(403);
+
+  const cambio = await detalle.PATCH(
+    new Request(`https://negociosenchanclas.com/api/panel/leads/${id}`, {
+      method: "PATCH",
+      headers: {
+        cookie,
+        "content-type": "application/json",
+        "x-nec-csrf": csrf,
+        origin: "https://negociosenchanclas.com",
+        host: "negociosenchanclas.com",
+      },
+      body: JSON.stringify({ estado: "contactado", notas: "Llamar el martes" }),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+  expect(cambio.status).toBe(200);
+
+  const borrado = await detalle.PATCH(
+    new Request(`https://negociosenchanclas.com/api/panel/leads/${id}`, {
+      method: "PATCH",
+      headers: {
+        cookie,
+        "content-type": "application/json",
+        "x-nec-csrf": csrf,
+        host: "negociosenchanclas.com",
+      },
+      body: JSON.stringify({ borrar: true }),
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+  expect(borrado.status).toBe(200);
+  const oculto = await listar(new Request("https://negociosenchanclas.com/api/panel/leads", { headers: { cookie } }));
+  expect((await oculto.json()).total).toBe(0);
+
+  const csv = await exportar(
+    new Request("https://negociosenchanclas.com/api/panel/leads/export?borrados=1", { headers: { cookie } }),
+  );
+  expect(csv.headers.get("content-type")).toContain("text/csv");
+  const texto = await csv.text();
+  expect(texto).toContain("ana@example.com");
+  expect(texto).not.toContain("203.0.113.8");
+
+  const salir = await logout(
+    new Request("https://negociosenchanclas.com/api/panel/logout", {
+      method: "POST",
+      headers: { cookie, "x-nec-csrf": csrf, host: "negociosenchanclas.com" },
+    }),
+  );
+  expect(salir.headers.get("set-cookie")).toContain("Max-Age=0");
+});
+
+test("una búsqueda con comillas no rompe el listado", async () => {
+  await contacto(post("/api/contacto", contactoOk));
+  const { cookie } = await entrar();
+  const res = await listar(
+    new Request("https://negociosenchanclas.com/api/panel/leads?q=" + encodeURIComponent("' or 1=1 --"), {
+      headers: { cookie },
+    }),
+  );
+  expect(res.status).toBe(200);
+  expect((await res.json()).total).toBe(0);
+});

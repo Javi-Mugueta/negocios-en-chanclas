@@ -14,7 +14,11 @@ const desdePaquete: Record<string, Punto> = {
   cierre: "cerrar",
 };
 
-export default async function EmpezarPage({ searchParams }: PageProps<"/empezar">) {
+export default async function EmpezarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ paquete?: string }>;
+}) {
   const { paquete } = await searchParams;
   const puntoInicial = typeof paquete === "string" ? desdePaquete[paquete] : undefined;
 
@@ -32,8 +36,8 @@ export default async function EmpezarPage({ searchParams }: PageProps<"/empezar"
             <span className="font-serif font-normal text-chancla italic">y a la sombra.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-tinta/70 md:text-xl">
-            Cuéntanos en qué punto está tu LLC y te decimos cuál es tu siguiente paso. Sin
-            compromiso: tus respuestas no salen de esta página.
+            Cuéntanos en qué punto está tu LLC y te decimos cuál es tu siguiente paso. Al final
+            guardamos tus respuestas, con tu consentimiento, para poder escribirte.
           </p>
         </div>
         <div className="mt-12">
