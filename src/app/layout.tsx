@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -36,6 +34,7 @@ export const metadata: Metadata = {
   description:
     "Tu LLC en Estados Unidos, con atención en español e inglés y sin agobios. Presentación anual de los formularios 1120 y 5472, baja de LLC y acompañamiento humano.",
   applicationName: "Negocios en Chanclas",
+  metadataBase: new URL("https://negociosenchanclas.com"),
   openGraph: {
     title: "Negocios en Chanclas – Gestión LLC´s",
     description: "Tu empresa en EE. UU., sin quitarte las chanclas.",
@@ -48,7 +47,7 @@ export const viewport: Viewport = {
   themeColor: "#fbf6ee",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="es-ES"
@@ -61,17 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className="flex min-h-full flex-col">
-        <a
-          href="#contenido"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-full focus:bg-tinta focus:px-4 focus:py-2 focus:text-arena"
-        >
-          Saltar al contenido
-        </a>
-        <SiteHeader />
-        <main id="contenido" className="flex-1">
-          {children}
-        </main>
-        <SiteFooter />
+        {children}
         <Toaster position="bottom-center" />
       </body>
     </html>

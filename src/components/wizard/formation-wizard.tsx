@@ -6,9 +6,11 @@ import { ArrowLeft, ArrowRight, Check, Copy, Lock, RotateCcw } from "lucide-reac
 import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
+import { Honeypot } from "@/components/honeypot";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { checklistPresentacion, estados, estadosDestacados, paquetes } from "@/lib/site";
+import { leerAtribucion } from "@/lib/atribucion";
+import { checklistPresentacion, contacto, estados, estadosDestacados, paquetes } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export type Punto = "crear" | "anual" | "cerrar";
@@ -84,6 +86,10 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
   const [maxPaso, setMaxPaso] = useState(0);
   const [r, setR] = useState<Respuestas>({ ...vacio, punto: puntoInicial ?? null });
   const [errores, setErrores] = useState<Record<string, string>>({});
+  const [consentimiento, setConsentimiento] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState("");
+  const [firmaGuardada, setFirmaGuardada] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const primerRender = useRef(true);
 
@@ -124,6 +130,10 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
     if (i === 4) {
       if (!r.nombre.trim()) e.nombre = "Dinos cómo te llamas.";
       if (!EMAIL_RE.test(r.email.trim())) e.email = "Escribe un email válido.";
+      if (r.telefono.trim() && (r.telefono.trim().length < 5 || !/\d/.test(r.telefono))) {
+        e.telefono = "Revisa el teléfono.";
+      }
+      if (!consentimiento) e.consentimiento = "Necesitamos tu consentimiento.";
     }
     return e;
   }
@@ -135,7 +145,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function continuar(e: React.FormEvent) {
+  async function continuar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const err = validar(paso);
     setErrores(err);
@@ -144,7 +154,61 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
       document.querySelector<HTMLElement>(`[data-campo="${primero}"]`)?.focus();
       return;
     }
-    irA(paso + 1);
+    if (paso < pasos.length - 1) {
+      irA(paso + 1);
+      return;
+    }
+
+    const firma = JSON.stringify({
+      punto: r.punto,
+      tipo: r.tipo,
+      estado: r.estado,
+      otroEstado: r.otroEstado,
+      nombreLLC: r.nombreLLC,
+      sinNombre: r.sinNombre,
+      nombre: r.nombre,
+      email: r.email,
+      telefono: r.telefono,
+    });
+    if (firma === firmaGuardada) {
+      irA(paso + 1);
+      return;
+    }
+
+    setEnviando(true);
+    setErrorEnvio("");
+    try {
+      const res = await fetch("/api/empezar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          punto: r.punto,
+          tipo: r.tipo,
+          estado: r.estado,
+          otroEstado: r.otroEstado,
+          nombreLLC: r.nombreLLC,
+          sinNombre: r.sinNombre,
+          nombre: r.nombre,
+          email: r.email,
+          telefono: r.telefono,
+          consentimiento: true,
+          nec_hp: String(new FormData(e.currentTarget).get("nec_hp") ?? ""),
+          ...leerAtribucion(),
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { errors?: Record<string, string>; error?: string };
+      if (!res.ok) {
+        if (json.errors) setErrores(json.errors);
+        setErrorEnvio(json.error || "No hemos podido guardar tus respuestas.");
+        return;
+      }
+      setFirmaGuardada(firma);
+      irA(paso + 1);
+    } catch {
+      setErrorEnvio("No hemos podido guardar tus respuestas.");
+    } finally {
+      setEnviando(false);
+    }
   }
 
   function saltarA(destino: number) {
@@ -209,7 +273,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
           <div className="mt-6 hidden items-start gap-3 rounded-3xl border border-dashed border-tinta/20 p-5 text-sm text-tinta/70 lg:flex">
             <Lock className="mt-0.5 size-4 shrink-0 text-chancla-2" aria-hidden="true" />
             <p>
-              Tus respuestas se quedan en esta página. No se envían ni se guardan en ningún sitio.
+              Al terminar guardamos tus respuestas para poder responderte. No las usamos para nada más.
             </p>
           </div>
         </div>
@@ -252,8 +316,9 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
             noValidate
             onSubmit={continuar}
             key={paso}
-            className="rounded-[2rem] border border-tinta/10 bg-card p-6 shadow-[0_30px_60px_-40px_rgba(19,41,61,0.4)] animate-in fade-in slide-in-from-bottom-2 duration-500 sm:p-10"
+            className="relative rounded-[2rem] border border-tinta/10 bg-card p-6 shadow-[0_30px_60px_-40px_rgba(19,41,61,0.4)] animate-in fade-in slide-in-from-bottom-2 duration-500 sm:p-10"
           >
+            <Honeypot />
             {paso === 0 && (
               <Paso
                 headingRef={headingRef}
@@ -418,7 +483,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
                     <FieldError id="nombreLLC-error">{errores.nombreLLC}</FieldError>
                   ) : (
                     <p id="nombreLLC-hint" className="text-sm text-tinta/55">
-                      Solo sirve para preparar tu caso. Aquí no se registra nada.
+                      Solo sirve para preparar tu caso. El registro oficial, si toca, va después.
                     </p>
                   )}
                 </div>
@@ -440,7 +505,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
               <Paso
                 headingRef={headingRef}
                 titulo="¿Cómo te llamamos?"
-                texto="Para que el resumen final vaya a tu nombre. Recuerda: de momento, nada sale de esta página."
+                texto="Para poder escribirte con el siguiente paso. Al continuar, guardamos estos datos."
               >
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <TextField
@@ -467,13 +532,52 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
                     type="tel"
                     value={r.telefono}
                     onChange={(v) => set("telefono", v)}
+                    error={errores.telefono}
                     autoComplete="tel"
                   />
                 </div>
-                <p className="mt-6 flex items-start gap-2 rounded-2xl bg-arena-2 p-4 text-sm text-tinta/70">
-                  <Lock className="mt-0.5 size-4 shrink-0 text-chancla-2" aria-hidden="true" />
-                  No enviamos ni guardamos estos datos. Al recargar la página, desaparecen.
-                </p>
+                <label className="mt-6 flex cursor-pointer items-start gap-3 text-sm text-tinta/70">
+                  <input
+                    type="checkbox"
+                    data-campo="consentimiento"
+                    checked={consentimiento}
+                    onChange={(e) => {
+                      setConsentimiento(e.target.checked);
+                      setErrores((prev) => {
+                        if (!prev.consentimiento) return prev;
+                        const next = { ...prev };
+                        delete next.consentimiento;
+                        return next;
+                      });
+                    }}
+                    className="mt-0.5 size-5 shrink-0 accent-[var(--chancla)]"
+                    aria-invalid={!!errores.consentimiento}
+                  />
+                  <span>
+                    Acepto que Negocios en Chanclas use estos datos para responder a mi consulta, según su{" "}
+                    <Link href="/legal" className="font-medium text-tinta underline underline-offset-2">
+                      política de privacidad
+                    </Link>
+                    .
+                    {errores.consentimiento && (
+                      <span className="mt-1 block font-medium text-destructive">{errores.consentimiento}</span>
+                    )}
+                  </span>
+                </label>
+                {errorEnvio && (
+                  <p role="alert" className="mt-5 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">
+                    {errorEnvio}{" "}
+                    <a
+                      className="font-semibold underline"
+                      href={contacto.whatsapp.espana.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Escríbenos por WhatsApp
+                    </a>
+                    .
+                  </p>
+                )}
               </Paso>
             )}
 
@@ -491,9 +595,10 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
               )}
               <button
                 type="submit"
-                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none"
+                disabled={enviando}
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none disabled:opacity-70"
               >
-                {paso === pasos.length - 1 ? "Ver mi siguiente paso" : "Continuar"}
+                {enviando ? "Guardando…" : paso === pasos.length - 1 ? "Ver mi siguiente paso" : "Continuar"}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
               </button>
             </div>
@@ -512,7 +617,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
 
         <p className="mt-6 flex items-start gap-2 text-sm text-tinta/60 lg:hidden">
           <Lock className="mt-0.5 size-4 shrink-0 text-chancla-2" aria-hidden="true" />
-          Tus respuestas se quedan en esta página. No se envían ni se guardan en ningún sitio.
+          Al terminar guardamos tus respuestas para poder responderte. No las usamos para nada más.
         </p>
       </div>
     </div>
@@ -923,7 +1028,7 @@ function Resultado({
         </dl>
         <p className="mt-4 flex items-start gap-2 text-sm text-tinta/55">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Nada de esto se ha enviado. Si quieres que lo veamos, copia el resumen y mándanoslo.
+          Hemos guardado tus respuestas. Te escribiremos a {r.email.trim()}.
         </p>
       </section>
     </div>
