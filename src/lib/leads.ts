@@ -296,20 +296,29 @@ export const FUENTES = [
   ...SERVICIOS.map((servicio) => ({
     origen: "contacto" as const,
     servicio,
-    nombre: servicio === "encargo" ? "Encargo personalizado" : servicio === "formularios-llc" ? "Formularios LLC" : servicio === "cierre-llc" ? "Cierre de LLC" : `Contacto ? ${ETIQUETA_SERVICIO[servicio]}`,
+    nombre: servicio === "encargo" ? "Encargo personalizado" : servicio === "formularios-llc" ? "Formularios LLC" : servicio === "cierre-llc" ? "Cierre de LLC" : `Contacto · ${ETIQUETA_SERVICIO[servicio]}`,
     url: servicio === "encargo" ? "/encargo-personalizado" : servicio === "formularios-llc" ? "/formularios-llc" : servicio === "cierre-llc" ? "/cierra-tu-llc" : `/contacto?servicio=${servicio}`,
   })),
   ...[...new Set(Object.values(SERVICIO_POR_CASO))].map((servicio) => ({
     origen: "empezar" as const,
     servicio,
-    nombre: `Asistente ? ${ETIQUETA_SERVICIO[servicio]}`,
+    nombre: `Asistente · ${ETIQUETA_SERVICIO[servicio]}`,
     url: "/empezar",
   })),
 ];
 
+const SERVICIOS_CON_ALTA = new Set<string>([SERVICIO_POR_CASO.plan, SERVICIO_POR_CASO.encargo]);
+
+/** El lead trae los datos de alta completos del asistente (leads antiguos: no). */
+export function tieneAltaCompleta(lead: Pick<Lead, "datos">): boolean {
+  return lead.datos.altaCompleta === true;
+}
+
 export async function contadoresFuentes(db: BaseDatos, ahora = new Date()) {
-  const agrupar = (desde?: string) => db.query<{ origen: string; servicio: string; n: number | string }>(
-    `select origen, servicio, count(*) as n from nec.leads where borrado_en is null${desde ? " and created_at >= $1" : ""} group by origen, servicio`,
+  const agrupar = (desde?: string) => db.query<{ origen: string; servicio: string; n: number | string; alta: number | string | null }>(
+    `select origen, servicio, count(*) as n,
+       sum(case when datos->>'altaCompleta' = 'true' then 1 else 0 end) as alta
+     from nec.leads where borrado_en is null${desde ? " and created_at >= $1" : ""} group by origen, servicio`,
     desde ? [desde] : [],
   );
   const [totales, hoy, semana] = await Promise.all([
@@ -317,7 +326,11 @@ export async function contadoresFuentes(db: BaseDatos, ahora = new Date()) {
   ]);
   const cuenta = (filas: typeof totales, origen: string, servicio: string) =>
     Number(filas.find((fila) => fila.origen === origen && fila.servicio === servicio)?.n ?? 0);
+  const conAlta = (origen: string, servicio: string) =>
+    Number(totales.find((fila) => fila.origen === origen && fila.servicio === servicio)?.alta ?? 0);
   return FUENTES.map((fuente) => ({ ...fuente,
+    /** Solo el asistente de «crear» recoge datos de alta; null = no aplica. */
+    conAlta: fuente.origen === "empezar" && SERVICIOS_CON_ALTA.has(fuente.servicio) ? conAlta(fuente.origen, fuente.servicio) : null,
     total: cuenta(totales, fuente.origen, fuente.servicio),
     hoy: cuenta(hoy, fuente.origen, fuente.servicio),
     semana: cuenta(semana, fuente.origen, fuente.servicio),

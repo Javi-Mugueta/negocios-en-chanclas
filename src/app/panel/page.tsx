@@ -6,7 +6,7 @@ import { Filtros, queryDeFiltros } from "@/components/panel/filtros";
 import { PanelMarco } from "@/components/panel/marco";
 import { ETIQUETA_ESTADO, ETIQUETA_ORIGEN, ESTADOS, etiquetaServicio } from "@/lib/etiquetas";
 import { formatFecha } from "@/lib/fechas";
-import { contadores, contadoresFuentes, filtrosDesdeUrl, listarLeads, TAMANO_PAGINA, type Contadores, type FiltrosLeads, type Lead } from "@/lib/leads";
+import { contadores, contadoresFuentes, filtrosDesdeUrl, listarLeads, TAMANO_PAGINA, tieneAltaCompleta, type Contadores, type FiltrosLeads, type Lead } from "@/lib/leads";
 import { getDb } from "@/lib/db";
 import { sesionActual } from "@/lib/sesion-servidor";
 
@@ -91,12 +91,12 @@ export default async function PanelPage({
           <p className="mt-1 text-sm text-tinta/60">Consultas activas por origen y servicio. Hoy y esta semana, en hora de Madrid.</p>
           <div className="mt-3 overflow-x-auto rounded-[1.5rem] border border-tinta/10 bg-card">
             <table className="w-full min-w-[42rem] text-left text-sm">
-              <thead><tr className="text-tinta/60"><th className="p-3">Fuente</th><th className="p-3">URL p?blica</th><th className="p-3">Total</th><th className="p-3">Hoy</th><th className="p-3">Esta semana</th><th className="p-3"><span className="sr-only">Consultas</span></th></tr></thead>
+              <thead><tr className="text-tinta/60"><th className="p-3">Fuente</th><th className="p-3">URL pública</th><th className="p-3">Total</th><th className="p-3">Con datos de alta</th><th className="p-3">Hoy</th><th className="p-3">Esta semana</th><th className="p-3"><span className="sr-only">Consultas</span></th></tr></thead>
               <tbody>{fuentes.map((fuente) => (
                 <tr key={`${fuente.origen}-${fuente.servicio}`} className="border-t border-tinta/10">
                   <th scope="row" className="p-3 font-semibold">{fuente.nombre}</th>
                   <td className="p-3"><a className="underline" href={fuente.url}>{fuente.url}</a></td>
-                  <td className="p-3">{fuente.total}</td><td className="p-3">{fuente.hoy}</td><td className="p-3">{fuente.semana}</td>
+                  <td className="p-3">{fuente.total}</td><td className="p-3">{fuente.conAlta ?? "—"}</td><td className="p-3">{fuente.hoy}</td><td className="p-3">{fuente.semana}</td>
                   <td className="p-3"><Link className="font-semibold underline" href={`/panel?origen=${fuente.origen}&servicio=${fuente.servicio}#consultas`}>Ver consultas<span className="sr-only"> de {fuente.nombre}</span></Link></td>
                 </tr>
               ))}</tbody>
@@ -131,6 +131,14 @@ export default async function PanelPage({
   );
 }
 
+function BadgeAlta() {
+  return (
+    <span className="mt-1 block w-fit rounded-full bg-chancla/10 px-2 py-0.5 text-xs font-semibold text-chancla-2">
+      Datos de alta completos
+    </span>
+  );
+}
+
 function Tarjeta({ cifra, etiqueta }: { cifra: number; etiqueta: string }) {
   return (
     <div className="rounded-[1.5rem] border border-tinta/10 bg-card p-4">
@@ -157,6 +165,7 @@ function ListaMovil({ leads }: { leads: Lead[] }) {
             <p className="mt-2 text-sm text-tinta/60">
               {ETIQUETA_ORIGEN[lead.origen]} · {etiquetaServicio(lead.servicio)}
             </p>
+            {tieneAltaCompleta(lead) && <BadgeAlta />}
             <p className="mt-1 text-xs text-tinta/45">{formatFecha(lead.createdAt)}</p>
           </Link>
         </li>
@@ -190,7 +199,10 @@ function ListaTabla({ leads }: { leads: Lead[] }) {
                 {lead.telefono && <p className="text-tinta/50">{lead.telefono}</p>}
               </td>
               <td className="px-4 py-3">{ETIQUETA_ORIGEN[lead.origen]}</td>
-              <td className="px-4 py-3">{etiquetaServicio(lead.servicio)}</td>
+              <td className="px-4 py-3">
+                {etiquetaServicio(lead.servicio)}
+                {tieneAltaCompleta(lead) && <BadgeAlta />}
+              </td>
               <td className="px-4 py-3">
                 <EstadoPill estado={lead.estado} />
               </td>

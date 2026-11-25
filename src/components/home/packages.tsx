@@ -30,7 +30,7 @@ export function Packages() {
             href="/empezar"
             className="font-semibold text-chancla-2 underline decoration-chancla/40 underline-offset-4 transition hover:decoration-chancla"
           >
-            Responde cinco preguntas y te lo decimos
+            Responde unas preguntas y te lo decimos
           </Link>
           .
         </p>

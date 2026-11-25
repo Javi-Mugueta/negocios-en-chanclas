@@ -25,6 +25,14 @@ const CAMPOS: Record<string, string> = {
   planEtiqueta: "Plan elegido",
 };
 
+/** Datos de alta del asistente (crear LLC): orden y etiquetas de la ficha. */
+const CAMPOS_ALTA: [string, string][] = [
+  ["direccion", "Dirección completa"],
+  ["paisResidencia", "País de residencia"],
+  ["actividad", "Resumen de la actividad"],
+  ["facturacionEtiqueta", "Facturación anual media esperada (2 primeros años)"],
+];
+
 /** Formularios LLC: orden y etiquetas de la ficha. */
 const CAMPOS_FORMULARIOS: [string, string][] = [
   ["ejercicio", "Ejercicio"],
@@ -96,9 +104,11 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
   const whatsapp = enlaceWhatsapp(lead.telefono);
   const esFormularios = lead.servicio === "formularios-llc";
   const esCierre = lead.servicio === "cierre-llc";
+  const alta = datosAlta(lead.datos);
   const respuestas = Object.entries(lead.datos).filter(([clave, valor]) => {
     if (esFormularios || esCierre) return false;
     if (!(clave in CAMPOS)) return false;
+    if (clave === "nombreLlc" && alta) return false;
     if (clave === "nombreLlc" && (valor == null || valor === "") && lead.datos.sinNombre === true) return false;
     return true;
   });
@@ -204,6 +214,48 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
             </section>
           )}
 
+          {alta && (
+            <section className="rounded-[1.5rem] border border-tinta/10 bg-card p-5">
+              <h2 className="text-lg font-bold">Datos de alta de la LLC</h2>
+              <dl className="mt-4 space-y-3 text-sm">
+                <Fila k="Titular" v={lead.nombre} />
+                <Fila k="Email de contacto" v={lead.email} />
+                <Fila k="Teléfono" v={lead.telefono ?? "—"} />
+                <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                  <dt className="text-tinta/50">Opciones de nombre</dt>
+                  <dd>
+                    {alta.opciones.length ? (
+                      <ol className="list-decimal space-y-0.5 pl-5">
+                        {alta.opciones.map((o, i) => (
+                          <li key={i} className="break-words">{o}</li>
+                        ))}
+                      </ol>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                {CAMPOS_ALTA.map(([clave, etiqueta]) => {
+                  const valor = alta.datos[clave];
+                  return (
+                    <div key={clave} className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                      <dt className="text-tinta/50">{etiqueta}</dt>
+                      <dd className="break-words whitespace-pre-wrap">{valor == null || valor === "" ? "—" : String(valor)}</dd>
+                    </div>
+                  );
+                })}
+                <Fila k="Pasaporte" v="Pendiente: se pide por email" />
+                <Fila
+                  k="Términos y Condiciones"
+                  v={alta.datos.aceptaTerminos === true ? `Aceptados · versión ${String(alta.datos.terminosVersion ?? "—")}` : "No"}
+                />
+              </dl>
+              {lead.datos.tipo !== "llc-1" && (
+                <p className="mt-4 text-xs text-tinta/55">Hay más socios: faltan sus datos.</p>
+              )}
+            </section>
+          )}
+
           {respuestas.length > 0 && (
             <section className="rounded-[1.5rem] border border-tinta/10 bg-card p-5">
               <h2 className="text-lg font-bold">Respuestas del asistente</h2>
@@ -287,4 +339,14 @@ function textoEvento(evento: EventoLead): string {
     return `Estado: ${desde || "—"} → ${hasta || "—"}`;
   }
   return evento.accion;
+}
+
+function datosAlta(datos: Record<string, unknown>) {
+  const alta = datos.alta;
+  if (!alta || typeof alta !== "object" || Array.isArray(alta)) return null;
+  const registro = alta as Record<string, unknown>;
+  const opciones = Array.isArray(registro.opcionesNombre)
+    ? registro.opcionesNombre.filter((o): o is string => typeof o === "string")
+    : [];
+  return { datos: registro, opciones };
 }

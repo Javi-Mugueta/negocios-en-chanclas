@@ -8,7 +8,7 @@ import { formulariosVisibles } from "@/lib/visibilidad";
 export const metadata: Metadata = {
   title: "Empieza aquí",
   description:
-    "Cinco preguntas para saber cuál es tu siguiente paso con tu LLC: crearla, ponerla en regla con el IRS o cerrarla.",
+    "Unas preguntas para saber cuál es tu siguiente paso con tu LLC: crearla, ponerla en regla con el IRS o cerrarla.",
 };
 
 const desdePaquete: Record<string, Punto> = {
@@ -39,7 +39,7 @@ export default async function EmpezarPage({
         <div className="max-w-3xl">
           <Eyebrow>Empieza aquí</Eyebrow>
           <h1 className="mt-5 text-5xl leading-[0.95] font-extrabold md:text-7xl">
-            Cinco preguntas{" "}
+            Paso a paso{" "}
             <span className="font-serif font-normal text-chancla italic">y a la sombra.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-tinta/70 md:text-xl">
