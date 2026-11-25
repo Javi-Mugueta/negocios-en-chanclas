@@ -7,6 +7,7 @@ import { cabecerasSeguridad, valorCsp } from "@/lib/seguridad";
 import { esLocal, quitarSslMode } from "@/lib/db";
 import { enlaceWhatsapp } from "@/lib/telefono";
 import { esHoneypot, validarContacto, validarEmpezar } from "@/lib/validacion";
+import { casoAsistente } from "@/lib/asistente";
 import { estadosConstitucion, navegacion, planes } from "@/lib/site";
 import { formulariosAbiertos, leerLanzamiento } from "@/lib/visibilidad";
 
@@ -112,6 +113,7 @@ describe("validación", () => {
     const bueno = validarEmpezar({
       punto: "anual",
       tipo: "llc-2",
+      requisitos: "si",
       estado: "Wyoming",
       nombreLLC: "Sombrilla",
       nombre: "Ana",
@@ -119,8 +121,46 @@ describe("validación", () => {
       consentimiento: true,
     });
     expect(bueno).toMatchObject({
-      datos: { origen: "empezar", servicio: "en-regla", datos: { estado: "Wyoming", tipo: "llc-2" } },
+      datos: {
+        origen: "empezar",
+        servicio: "en-regla",
+        datos: { estado: "Wyoming", tipo: "llc-2", caso: "contacto" },
+      },
     });
+    const sinRequisitos = validarEmpezar({
+      punto: "anual",
+      tipo: "llc-1",
+      estado: "Wyoming",
+      nombreLLC: "Sombrilla",
+      nombre: "Ana",
+      email: "ana@example.com",
+      consentimiento: true,
+    });
+    expect(sinRequisitos).toMatchObject({ errores: { requisitos: expect.any(String) } });
+  });
+
+  test("el asistente manda a encargo lo que no cubren los planes", () => {
+    const base = { punto: "crear", sinNombre: true, nombre: "Ana", email: "ana@example.com", consentimiento: true };
+    const casos: [Record<string, unknown>, string][] = [
+      [{ tipo: "llc-1", estado: "New Mexico", plan: "basico" }, "arranque"],
+      [{ tipo: "llc-1", estado: "no-se" }, "arranque"],
+      [{ tipo: "llc-1", estado: "Wyoming", plan: "basico" }, "encargo"],
+      [{ tipo: "llc-2", estado: "New Mexico" }, "encargo"],
+      [{ tipo: "corp", estado: "Delaware" }, "encargo"],
+    ];
+    for (const [extra, servicio] of casos) {
+      const res = validarEmpezar({ ...base, ...extra });
+      expect(res).toMatchObject({ datos: { servicio } });
+      if ("datos" in res && servicio === "encargo") expect(res.datos.datos.plan).toBeUndefined();
+    }
+    expect("errores" in validarEmpezar({ ...base, punto: "anual", tipo: "corp", estado: "Wyoming", nombreLLC: "X", requisitos: "si" })).toBe(true);
+  });
+
+  test("casoAsistente decide el resultado", () => {
+    expect(casoAsistente({ punto: "anual", tipo: "llc-1", estado: "Texas", requisitos: "si" })).toBe("formularios");
+    expect(casoAsistente({ punto: "anual", tipo: "llc-1", estado: "Texas", requisitos: "no" })).toBe("contacto");
+    expect(casoAsistente({ punto: "anual", tipo: "llc-2", estado: "Texas", requisitos: "si" })).toBe("contacto");
+    expect(casoAsistente({ punto: "cerrar", tipo: null, estado: null, requisitos: null })).toBe("cierre");
   });
 
   test("el señuelo solo salta si viene relleno", () => {

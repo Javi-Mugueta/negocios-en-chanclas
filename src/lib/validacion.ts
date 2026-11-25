@@ -1,9 +1,19 @@
 import { z } from "zod";
-import { estados, estadosConstitucion, PLANES_ASISTENTE } from "@/lib/site";
+import {
+  casoAsistente,
+  ETIQUETA_CASO,
+  PUNTOS,
+  REQUISITOS,
+  SERVICIO_POR_CASO,
+  TIPOS,
+  type Punto,
+  type Requisitos,
+  type Tipo,
+} from "@/lib/asistente";
+import { estadosConstitucion, PLANES_ASISTENTE } from "@/lib/site";
 import {
   ETIQUETA_PUNTO,
   ETIQUETA_TIPO,
-  SERVICIO_POR_PUNTO,
   SERVICIOS,
   type OrigenLead,
   type ServicioLead,
@@ -28,6 +38,7 @@ const cuerpo = z.object({
   nombreLLC: z.unknown().optional(),
   sinNombre: z.unknown().optional(),
   plan: z.unknown().optional(),
+  requisitos: z.unknown().optional(),
 });
 
 export type DatosLead = {
@@ -121,10 +132,6 @@ export function validarContacto(body: unknown): { errores: Record<string, string
   };
 }
 
-const PUNTOS = ["crear", "anual", "cerrar"] as const;
-const TIPOS = ["llc-1", "llc-2"] as const;
-type Punto = (typeof PUNTOS)[number];
-type Tipo = (typeof TIPOS)[number];
 
 export function validarEmpezar(body: unknown): { errores: Record<string, string> } | { datos: DatosLead } {
   const parsed = cuerpo.safeParse(body);
@@ -137,22 +144,28 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
   const otro = texto(raw.otroEstado);
   const sinNombre = raw.sinNombre === true;
   const nombreLlc = texto(raw.nombreLLC);
+  const requisitos = texto(raw.requisitos);
   const nombre = texto(raw.nombre);
   const email = texto(raw.email).toLowerCase();
 
   if (!PUNTOS.includes(punto as Punto)) errores.punto = "Elige por dónde empezamos.";
-  if (!TIPOS.includes(tipo as Tipo)) errores.tipo = "Elige el tipo de LLC.";
+  if (!TIPOS.includes(tipo as Tipo) || (tipo === "corp" && punto !== "crear")) {
+    errores.tipo = "Elige el tipo de LLC.";
+  }
+  if (punto === "anual" && !REQUISITOS.includes(requisitos as Requisitos)) {
+    errores.requisitos = "Dinos si cumples los requisitos.";
+  }
 
   let estadoVisible = "";
   if (!estado) {
     errores.estado = "Elige un estado (o dinos que aún no lo sabes).";
   } else if (estado === "otro") {
-    if (!otro || !estados.includes(otro)) errores.otroEstado = "Elige el estado de la lista.";
+    if (!otro || !estadosConstitucion.includes(otro)) errores.otroEstado = "Elige el estado de la lista.";
     else estadoVisible = otro;
   } else if (estado === "no-se") {
     if (punto !== "crear") errores.estado = "Elige el estado en el que está registrada.";
     else estadoVisible = "Aún por decidir";
-  } else if (!estados.includes(estado)) {
+  } else if (!estadosConstitucion.includes(estado)) {
     errores.estado = "Elige un estado de la lista.";
   } else {
     estadoVisible = estado;
@@ -176,11 +189,13 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
 
   const puntoOk = punto as Punto;
   const tipoOk = tipo as Tipo;
-  const plan = puntoOk === "crear" ? planDe(raw.plan) : null;
+  const requisitosOk = puntoOk === "anual" ? (requisitos as Requisitos) : null;
+  const caso = casoAsistente({ punto: puntoOk, tipo: tipoOk, estado, requisitos: requisitosOk })!;
+  const plan = caso === "plan" ? planDe(raw.plan) : null;
   return {
     datos: {
       origen: "empezar",
-      servicio: SERVICIO_POR_PUNTO[puntoOk],
+      servicio: SERVICIO_POR_CASO[caso],
       nombre,
       email,
       telefono,
@@ -195,6 +210,14 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
         estado: estadoVisible,
         nombreLlc: necesitaNombre ? nombreLlc : null,
         sinNombre: puntoOk === "crear" && sinNombre,
+        ...(requisitosOk
+          ? {
+              requisitos: requisitosOk,
+              requisitosEtiqueta: requisitosOk === "si" ? "Los cumple todos" : "No cumple alguno o tiene dudas",
+            }
+          : {}),
+        caso,
+        casoEtiqueta: ETIQUETA_CASO[caso],
         ...(plan ? { plan, planEtiqueta: PLANES_ASISTENTE[plan] } : {}),
       },
     },

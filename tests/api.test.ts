@@ -430,7 +430,8 @@ test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
   const filas = await estado.db!.query("select datos from nec.leads");
   const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
   expect(datos.plan).toBe("estandar");
-  expect(datos.planEtiqueta).toBe("Plan Estándar (497$)");
+  expect(datos.planEtiqueta).toBe("Plan Estándar (497 $ primer año)");
+  expect(datos.caso).toBe("plan");
 });
 
 test("fuentes incluye combinaciones vacías y cuenta por origen y servicio en hora de Madrid", async () => {

@@ -12,22 +12,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { leerAtribucion } from "@/lib/atribucion";
 import {
+  casoAsistente,
+  ESTADO_PLANES,
+  type Caso,
+  type Punto,
+  type Requisitos,
+  type Tipo,
+} from "@/lib/asistente";
+import {
+  AGENDA_15MIN,
   checklistPresentacion,
+  cierreLlc,
   contacto,
-  estados,
-  estadosDestacados,
-  paquetes,
+  estadosConstitucionDestacados,
+  estadosConstitucionResto,
+  formulariosLlc,
+  planes,
   PLANES_ASISTENTE,
+  requisitosFormularios,
+  type Plan,
   type PlanAsistente,
 } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-export type Punto = "crear" | "anual" | "cerrar";
-type Tipo = "llc-1" | "llc-2";
+export type { Punto };
 
 type Respuestas = {
   punto: Punto | null;
   tipo: Tipo | null;
+  requisitos: Requisitos | null;
   estado: string | null;
   otroEstado: string;
   nombreLLC: string;
@@ -40,6 +53,7 @@ type Respuestas = {
 const vacio: Respuestas = {
   punto: null,
   tipo: null,
+  requisitos: null,
   estado: null,
   otroEstado: "",
   nombreLLC: "",
@@ -58,39 +72,56 @@ const pasos = [
 ] as const;
 const RESULTADO = pasos.length;
 
-const puntos: { value: Punto; titulo: string; texto: string; paquete: string }[] = [
+const planBasico = planes.find((p) => p.id === "basico")!;
+const planEstandar = planes.find((p) => p.id === "estandar")!;
+const planEncargo = planes.find((p) => p.id === "encargo")!;
+
+const puntos: { value: Punto; titulo: string; texto: string; precio: string }[] = [
   {
     value: "crear",
     titulo: "Quiero crear mi LLC",
-    texto: "Tengo la idea y quiero montar mi empresa en EE. UU.",
-    paquete: "arranque",
+    texto: `Plan Básico ${planBasico.precio} o Plan Estándar ${planEstandar.precio} el primer año; renovación, 197 $/año.`,
+    precio: `Desde ${planBasico.precio}`,
   },
   {
     value: "anual",
     titulo: "Ya tengo una LLC",
-    texto: "Me toca la presentación anual de los formularios 1120 y 5472.",
-    paquete: "en-regla",
+    texto: "Me toca presentar los formularios anuales 1120/5472.",
+    precio: formulariosLlc.precio,
   },
   {
     value: "cerrar",
     titulo: "Quiero cerrar mi LLC",
-    texto: "Nos encargamos de cerrarla bien, de principio a fin.",
-    paquete: "cierre",
+    texto: "Para LLC de Wyoming y Nuevo México. ¿Otro estado? Escríbenos y te damos presupuesto.",
+    precio: cierreLlc.precioCompleto,
   },
 ];
 
-const tipos: { value: Tipo; titulo: string; texto: string }[] = [
+const tiposLlc: { value: Tipo; titulo: string; texto: string }[] = [
   { value: "llc-1", titulo: "LLC de un socio", texto: "Single member: una sola persona al mando." },
   { value: "llc-2", titulo: "LLC con varios socios", texto: "Multi-member: un proyecto compartido." },
 ];
+const tipoCorp = {
+  value: "corp" as const,
+  titulo: "Corporación (C-Corp)",
+  texto: "Para levantar inversión, emitir acciones o proyectos que no encajan en una LLC.",
+};
+const tiposDe = (punto: Punto | null) => (punto === "crear" ? [...tiposLlc, tipoCorp] : tiposLlc);
 
-const otrosEstados = estados.filter((e) => !estadosDestacados.includes(e)).sort((a, b) =>
-  a.localeCompare(b, "es"),
-);
+const otrosEstados = estadosConstitucionResto;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; plan?: PlanAsistente }) {
+export function FormationWizard({
+  puntoInicial,
+  plan,
+  formulariosAbiertos = true,
+}: {
+  puntoInicial?: Punto;
+  plan?: PlanAsistente;
+  /** /formularios-llc puede estar oculta (NEC_FORMULARIOS_LAUNCH): entonces el resultado lleva a contacto. */
+  formulariosAbiertos?: boolean;
+}) {
   const [paso, setPaso] = useState(0);
   const [maxPaso, setMaxPaso] = useState(0);
   const [r, setR] = useState<Respuestas>({ ...vacio, punto: puntoInicial ?? null });
@@ -101,6 +132,7 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
   const [firmaGuardada, setFirmaGuardada] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const router = useRouter();
+  const caso = casoAsistente(r);
   const primerRender = useRef(true);
 
   useEffect(() => {
@@ -124,7 +156,8 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
   function validar(i: number): Record<string, string> {
     const e: Record<string, string> = {};
     if (i === 0 && !r.punto) e.punto = "Elige por dónde empezamos.";
-    if (i === 1 && !r.tipo) e.tipo = "Elige el tipo de LLC.";
+    if (i === 1 && !r.tipo) e.tipo = "Elige el tipo de empresa.";
+    if (i === 1 && r.punto === "anual" && !r.requisitos) e.requisitos = "Dinos si cumples los requisitos.";
     if (i === 2) {
       if (!r.estado) e.estado = "Elige un estado (o dinos que aún no lo sabes).";
       else if (r.estado === "otro" && !r.otroEstado) e.otroEstado = "Elige el estado de la lista.";
@@ -177,6 +210,7 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
     const firma = JSON.stringify({
       punto: r.punto,
       tipo: r.tipo,
+      requisitos: r.requisitos,
       estado: r.estado,
       otroEstado: r.otroEstado,
       nombreLLC: r.nombreLLC,
@@ -199,6 +233,7 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
         body: JSON.stringify({
           punto: r.punto,
           tipo: r.tipo,
+          requisitos: r.punto === "anual" ? r.requisitos : undefined,
           estado: r.estado,
           otroEstado: r.otroEstado,
           nombreLLC: r.nombreLLC,
@@ -206,7 +241,7 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
           nombre: r.nombre,
           email: r.email,
           telefono: r.telefono,
-          plan: r.punto === "crear" ? plan : undefined,
+          plan: caso === "plan" ? plan : undefined,
           consentimiento: true,
           nec_hp: String(new FormData(e.currentTarget).get("nec_hp") ?? ""),
           ...leerAtribucion(),
@@ -253,13 +288,23 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
 
   const estadoTexto =
     r.estado === "otro" ? r.otroEstado : r.estado === "no-se" ? "Aún por decidir" : (r.estado ?? "");
-  const paquete = paquetes.find(
-    (p) => p.id === puntos.find((pt) => pt.value === r.punto)?.paquete,
-  );
 
   const resumen = [
     { paso: 0, k: "Punto de partida", v: puntos.find((p) => p.value === r.punto)?.titulo ?? "" },
-    { paso: 1, k: "Tipo de empresa", v: tipos.find((t) => t.value === r.tipo)?.titulo ?? "" },
+    {
+      paso: 1,
+      k: "Tipo de empresa",
+      v: [
+        tiposDe(r.punto).find((t) => t.value === r.tipo)?.titulo ?? "",
+        r.punto === "anual" && r.requisitos
+          ? r.requisitos === "si"
+            ? "Cumplo los requisitos"
+            : "No cumplo alguno o tengo dudas"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    },
     { paso: 2, k: "Estado", v: estadoTexto },
     { paso: 3, k: "Nombre de la LLC", v: r.sinNombre && r.punto === "crear" ? "Aún por decidir" : r.nombreLLC },
     {
@@ -273,7 +318,7 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
     const texto = [
       "Negocios en Chanclas · Resumen",
       ...resumen.map((x) => `${x.k}: ${x.v}`),
-      paquete ? `Siguiente paso: ${paquete.nombre} (${paquete.servicio})` : "",
+      caso ? `Siguiente paso: ${siguientePaso(caso, plan)}` : "",
     ].join("\n");
     try {
       await navigator.clipboard.writeText(texto);
@@ -360,9 +405,11 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
                       onChange={() => {
                         set("punto", p.value);
                         if (p.value !== "crear" && r.estado === "no-se") set("estado", null);
+                        if (p.value !== "crear" && r.tipo === "corp") set("tipo", null);
                       }}
                       titulo={p.titulo}
                       texto={p.texto}
+                      precio={p.precio}
                     />
                   ))}
                 </RadioGroup>
@@ -373,10 +420,14 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
               <Paso
                 headingRef={headingRef}
                 titulo={r.punto === "crear" ? "¿Cómo será tu LLC?" : "¿Cómo es tu LLC?"}
-                texto="Trabajamos con LLC de un socio y con LLC de varios socios. Si necesitas una corporación, la preparamos a medida."
+                texto={
+                  r.punto === "crear"
+                    ? "Los planes Básico y Estándar son para LLC de un socio. Varios socios o una C-Corp van por encargo personalizado."
+                    : "El servicio de Formularios LLC es para LLC de un solo socio."
+                }
               >
                 <RadioGroup name="tipo" label="Tipo de empresa" error={errores.tipo}>
-                  {tipos.map((t) => (
+                  {tiposDe(r.punto).map((t) => (
                     <OptionCard
                       key={t.value}
                       name="tipo"
@@ -388,16 +439,38 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
                     />
                   ))}
                 </RadioGroup>
-                <p className="mt-4 text-sm text-tinta/60">
-                  ¿Necesitas una corporación (C-Corp)? Es un servicio a medida.{" "}
-                  <Link
-                    href="/contacto?servicio=corporacion"
-                    className="font-semibold text-chancla-2 underline underline-offset-4"
-                  >
-                    Cuéntanos tu caso
-                  </Link>
-                  .
-                </p>
+                {r.punto === "anual" && (
+                  <div className="mt-8">
+                    <p className="font-semibold text-tinta">
+                      Antes de contratar este servicio, debes verificar que cumples los siguientes requisitos:
+                    </p>
+                    <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-tinta/70">
+                      {requisitosFormularios.map((req) => (
+                        <li key={req}>{req}</li>
+                      ))}
+                    </ol>
+                    <div className="mt-5">
+                      <RadioGroup name="requisitos" label="Requisitos" error={errores.requisitos}>
+                        <OptionCard
+                          name="requisitos"
+                          value="si"
+                          checked={r.requisitos === "si"}
+                          onChange={() => set("requisitos", "si")}
+                          titulo="Cumplo todos los requisitos"
+                          compact
+                        />
+                        <OptionCard
+                          name="requisitos"
+                          value="no"
+                          checked={r.requisitos === "no"}
+                          onChange={() => set("requisitos", "no")}
+                          titulo="No cumplo alguno o tengo dudas"
+                          compact
+                        />
+                      </RadioGroup>
+                    </div>
+                  </div>
+                )}
               </Paso>
             )}
 
@@ -409,12 +482,12 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
                 }
                 texto={
                   r.punto === "crear"
-                    ? "Estos tres son de los más elegidos por quien no reside en EE. UU. Si dudas, lo vemos juntos."
+                    ? "Los planes Básico y Estándar registran tu LLC en el Estado de Nuevo México. Si la quieres en otro estado, lo vemos en el encargo personalizado."
                     : "Lo encontrarás en tus Articles of Organization."
                 }
               >
                 <RadioGroup name="estado" label="Estado" error={errores.estado} columns={3}>
-                  {estadosDestacados.map((e) => (
+                  {estadosConstitucionDestacados.map((e) => (
                     <OptionCard
                       key={e}
                       name="estado"
@@ -485,7 +558,7 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
               >
                 <div className="space-y-2">
                   <Label htmlFor="nombreLLC" className="font-semibold">
-                    Nombre de la LLC
+                    {r.tipo === "corp" ? "Nombre de la empresa" : "Nombre de la LLC"}
                   </Label>
                   <div className="relative">
                     <Input
@@ -500,9 +573,11 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
                       aria-describedby={errores.nombreLLC ? "nombreLLC-error" : "nombreLLC-hint"}
                       className="h-14 rounded-2xl border-tinta/15 bg-white pr-16 pl-4 text-lg focus-visible:border-chancla focus-visible:ring-chancla/20"
                     />
-                    <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 font-display font-bold text-tinta/35">
-                      LLC
-                    </span>
+                    {r.tipo !== "corp" && (
+                      <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 font-display font-bold text-tinta/35">
+                        LLC
+                      </span>
+                    )}
                   </div>
                   {errores.nombreLLC ? (
                     <FieldError id="nombreLLC-error">{errores.nombreLLC}</FieldError>
@@ -632,7 +707,9 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
           <Resultado
             headingRef={headingRef}
             r={r}
-            paquete={paquete}
+            caso={caso}
+            plan={plan}
+            formulariosAbiertos={formulariosAbiertos}
             resumen={resumen}
             onEditar={irA}
             onCopiar={copiarResumen}
@@ -795,6 +872,7 @@ function OptionCard({
   onChange,
   titulo,
   texto,
+  precio,
   compact,
 }: {
   name: string;
@@ -803,6 +881,7 @@ function OptionCard({
   onChange: () => void;
   titulo: string;
   texto?: string;
+  precio?: string;
   compact?: boolean;
 }) {
   return (
@@ -840,6 +919,9 @@ function OptionCard({
         </span>
         {texto && <span className="mt-0.5 block text-tinta/65">{texto}</span>}
       </span>
+      {precio && (
+        <span className="shrink-0 text-right font-display font-extrabold text-tinta">{precio}</span>
+      )}
     </label>
   );
 }
@@ -903,10 +985,24 @@ function FieldError({
   );
 }
 
+/** Texto corto del siguiente paso, para el resumen copiado. */
+function siguientePaso(caso: Caso, plan?: PlanAsistente): string {
+  if (caso === "plan") return plan ? PLANES_ASISTENTE[plan] : "Plan Básico o Plan Estándar";
+  if (caso === "encargo") return `${planEncargo.nombre} (${planEncargo.precio})`;
+  if (caso === "formularios") return `${formulariosLlc.nombre} (${formulariosLlc.precio})`;
+  if (caso === "cierre") return `Cierre de LLC (${cierreLlc.precioCompleto})`;
+  return "Hablar con nosotros";
+}
+
+const AVISO_BANCO =
+  "La apertura guiada de cuenta bancaria es un servicio adicional, no incluido en ningún plan. Se contrata aparte.";
+
 function Resultado({
   headingRef,
   r,
-  paquete,
+  caso,
+  plan,
+  formulariosAbiertos,
   resumen,
   onEditar,
   onCopiar,
@@ -914,15 +1010,128 @@ function Resultado({
 }: {
   headingRef: React.RefObject<HTMLHeadingElement | null>;
   r: Respuestas;
-  paquete: (typeof paquetes)[number] | undefined;
+  caso: Caso | null;
+  plan?: PlanAsistente;
+  formulariosAbiertos: boolean;
   resumen: { paso: number; k: string; v: string }[];
   onEditar: (i: number) => void;
   onCopiar: () => void;
   onReiniciar: () => void;
 }) {
-  if (!paquete) return null;
+  const [planElegido, setPlanElegido] = useState<PlanAsistente | undefined>(plan);
+  if (!caso || caso === "cierre") return null;
   const nombrePila = r.nombre.trim().split(/\s+/)[0];
-  const presentamosNosotros = r.punto === "anual" || r.punto === "cerrar";
+  const saludo = nombrePila ? `${nombrePila}, ` : "";
+  const planActual = planElegido === "estandar" ? planEstandar : planElegido === "basico" ? planBasico : null;
+  const otroPlan = planElegido === "estandar" ? planBasico : planEstandar;
+
+  let titular: React.ReactNode;
+  let cuerpo: React.ReactNode;
+  if (caso === "plan") {
+    titular = planActual ? (
+      <>
+        {saludo}lo tuyo es el <span className="font-serif font-normal text-chancla italic">{planActual.nombre}.</span>
+      </>
+    ) : (
+      <>
+        {saludo}lo tuyo es <span className="font-serif font-normal text-chancla italic">constituir tu LLC.</span>
+      </>
+    );
+    cuerpo = (
+      <>
+        {r.estado !== ESTADO_PLANES && (
+          <p className="mt-3 max-w-xl text-arena/70">Registramos tu LLC en el Estado de Nuevo México.</p>
+        )}
+        <div className={cn("mt-7 grid grid-cols-1 gap-4", !planActual && "md:grid-cols-2")}>
+          {(planActual ? [planActual] : [planBasico, planEstandar]).map((p) => (
+            <TarjetaPlan key={p.id} plan={p} />
+          ))}
+        </div>
+        {planActual && (
+          <button
+            type="button"
+            onClick={() => setPlanElegido(otroPlan.id as PlanAsistente)}
+            className="mt-4 text-sm font-semibold text-sol underline underline-offset-4"
+          >
+            Prefiero el {otroPlan.nombre} ({otroPlan.precio} primer año)
+          </button>
+        )}
+        <p className="mt-6 text-sm text-arena/60">{AVISO_BANCO}</p>
+      </>
+    );
+  } else if (caso === "encargo") {
+    const motivo =
+      r.tipo === "corp"
+        ? "Las C-Corp las hacemos a medida, hablando contigo 1 a 1."
+        : r.tipo === "llc-2"
+          ? "Los planes Básico y Estándar son para LLC de un socio. Una LLC de dos o más miembros va por encargo."
+          : "Los planes Básico y Estándar registran la LLC en Nuevo México. Si la quieres en otro estado, lo vemos en el encargo personalizado.";
+    titular = (
+      <>
+        {saludo}lo tuyo es un{" "}
+        <span className="font-serif font-normal text-chancla italic">{planEncargo.nombre.toLowerCase()}.</span>
+      </>
+    );
+    cuerpo = (
+      <>
+        <p className="mt-3 max-w-xl text-arena/70">
+          {planEncargo.servicio}. «{planEncargo.lema}»
+        </p>
+        <p className="mt-7 font-display text-3xl font-extrabold">{planEncargo.precio}</p>
+        <p className="mt-4 max-w-xl text-arena/85">{planEncargo.incluye[0]}</p>
+        <p className="mt-3 max-w-xl text-arena/70">{motivo}</p>
+        <p className="mt-7 rounded-2xl bg-arena/10 p-4 text-sm text-arena/80">
+          <strong className="text-arena">Ya tenemos tu nombre y tu email:</strong> te escribimos para conocer
+          tu caso.
+        </p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <CtaLink href={AGENDA_15MIN}>Agenda una llamada gratuita de 15 min</CtaLink>
+        </div>
+      </>
+    );
+  } else if (caso === "formularios") {
+    titular = (
+      <>
+        {saludo}lo tuyo son los{" "}
+        <span className="font-serif font-normal text-chancla italic">{formulariosLlc.nombre}.</span>
+      </>
+    );
+    cuerpo = (
+      <>
+        <p className="mt-3 max-w-xl text-arena/70">{formulariosLlc.descripcion}</p>
+        <p className="mt-7 font-display text-3xl font-extrabold">{formulariosLlc.precio}</p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          {formulariosAbiertos ? (
+            <CtaLink href="/formularios-llc">Presentar mis formularios</CtaLink>
+          ) : (
+            <CtaLink href="/contacto?servicio=en-regla">Preparar con nosotros</CtaLink>
+          )}
+        </div>
+      </>
+    );
+  } else {
+    titular = (
+      <>
+        {saludo}lo tuyo es{" "}
+        <span className="font-serif font-normal text-chancla italic">hablar con nosotros.</span>
+      </>
+    );
+    cuerpo = (
+      <>
+        <p className="mt-3 max-w-xl text-arena/70">
+          {r.tipo === "llc-2"
+            ? requisitosFormularios[0]
+            : "Si incumples alguno de los requisitos o tienes dudas, lo mejor es que te pongas en contacto con nosotros."}
+        </p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <CtaLink href="/contacto?servicio=en-regla">Ponte en contacto con nosotros</CtaLink>
+          <CtaLink href={contacto.whatsapp.espana.href} variant="light" arrow={false}>
+            WhatsApp {contacto.whatsapp.espana.visible}
+          </CtaLink>
+        </div>
+      </>
+    );
+  }
 
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -938,56 +1147,13 @@ function Resultado({
             tabIndex={-1}
             className="mt-3 text-3xl leading-tight font-bold outline-none md:text-5xl"
           >
-            {nombrePila ? `${nombrePila}, ` : ""}lo tuyo es{" "}
-            <span className="font-serif font-normal text-chancla italic">{paquete.nombre}.</span>
+            {titular}
           </h2>
-          <p className="mt-3 max-w-xl text-arena/70">
-            {paquete.servicio}. {paquete.lema}
-          </p>
-
-          {paquete.precio && (
-            <p className="mt-7 font-display text-3xl font-extrabold">{paquete.precio}</p>
-          )}
-
-          <ul className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {paquete.incluye.map((item) => (
-              <li key={item} className="flex gap-3 text-arena/85">
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-chancla text-white">
-                  <Check className="size-3" strokeWidth={3} aria-hidden="true" />
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
-
-          {presentamosNosotros && (
-            <p className="mt-7 rounded-2xl bg-arena/10 p-4 text-sm text-arena/80">
-              <strong className="text-arena">Lo hacemos todo directamente:</strong> recogemos tus
-              datos, los revisamos contigo y presentamos los formularios.
-            </p>
-          )}
-          {r.tipo === "llc-2" && r.punto !== "crear" && (
-            <p className="mt-3 text-sm text-arena/70">
-              Con varios socios las obligaciones pueden cambiar: lo revisamos contigo antes de empezar.
-            </p>
-          )}
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <CtaLink href={`/contacto?servicio=${paquete.id}`}>
-              {r.punto === "crear" ? "Hablar con una persona" : "Preparar con nosotros"}
-            </CtaLink>
-            <CtaLink
-              href={r.punto === "crear" ? "/como-funciona-una-llc" : "/servicios#formularios-anuales"}
-              variant="light"
-              arrow={false}
-            >
-              {r.punto === "crear" ? "Leer la guía de la LLC" : "Ver qué datos necesitas"}
-            </CtaLink>
-          </div>
+          {cuerpo}
         </div>
       </section>
 
-      {r.punto !== "crear" && (
+      {caso === "formularios" && (
         <section className="rounded-[2rem] border border-tinta/10 bg-card p-7 sm:p-9">
           <h3 className="text-xl font-bold">Ve preparando esto</h3>
           <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -1052,5 +1218,36 @@ function Resultado({
         </p>
       </section>
     </div>
+  );
+}
+
+/** Plan Básico o Estándar, con el mismo contenido que las tarjetas de la home. */
+function TarjetaPlan({ plan }: { plan: Plan }) {
+  return (
+    <article className="flex flex-col rounded-3xl bg-arena/10 p-6">
+      <p className="font-mono text-xs tracking-[0.16em] text-sol uppercase">{plan.servicio}</p>
+      <h3 className="mt-2 text-2xl font-bold">{plan.nombre}</h3>
+      <p className="mt-1 text-arena/70">«{plan.lema}»</p>
+      <p className="mt-5 font-display text-4xl font-extrabold">
+        {plan.precio}
+        {plan.precioNota && (
+          <span className="ml-2 font-sans text-base font-semibold text-arena/70">{plan.precioNota}</span>
+        )}
+      </p>
+      {plan.aviso && <p className="mt-2 text-xs text-arena/60">{plan.aviso}</p>}
+      <ul className="mt-5 flex-1 space-y-2.5">
+        {plan.incluye.map((item) => (
+          <li key={item} className="flex gap-3 text-arena/85">
+            <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-chancla text-white">
+              <Check className="size-3" strokeWidth={3} aria-hidden="true" />
+            </span>
+            {item}
+          </li>
+        ))}
+      </ul>
+      <CtaLink href={plan.href} className="mt-6 w-full">
+        {plan.cta}
+      </CtaLink>
+    </article>
   );
 }

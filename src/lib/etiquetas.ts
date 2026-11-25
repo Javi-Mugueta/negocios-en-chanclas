@@ -58,12 +58,7 @@ export const ETIQUETA_PUNTO = {
 export const ETIQUETA_TIPO = {
   "llc-1": "LLC de un socio",
   "llc-2": "LLC con varios socios",
-} as const;
-
-export const SERVICIO_POR_PUNTO = {
-  crear: "arranque",
-  anual: "en-regla",
-  cerrar: "cierre",
+  corp: "Corporación (C-Corp)",
 } as const;
 
 export function esEstado(value: string | null | undefined): value is EstadoLead {

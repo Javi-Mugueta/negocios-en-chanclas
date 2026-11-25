@@ -20,6 +20,8 @@ const CAMPOS: Record<string, string> = {
   tipoEtiqueta: "Tipo de empresa",
   estado: "Estado",
   nombreLlc: "Nombre de la LLC",
+  requisitosEtiqueta: "Requisitos de Formularios LLC",
+  casoEtiqueta: "Resultado del asistente",
   planEtiqueta: "Plan elegido",
 };
 
@@ -177,7 +179,7 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                 ))}
               </dl>
               <p className="mt-4 text-xs text-tinta/55">
-                El pago (169$) se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la
+                El pago (169 $) se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la
                 referencia {lead.id}.
               </p>
             </section>
