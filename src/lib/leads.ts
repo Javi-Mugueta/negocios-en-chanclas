@@ -1,3 +1,4 @@
+import { SERVICIO_POR_CASO } from "@/lib/asistente";
 import type { BaseDatos, Fila } from "@/lib/db";
 import { randomUUID } from "node:crypto";
 import type { DatosLead } from "@/lib/validacion";
@@ -8,7 +9,6 @@ import {
   esServicio,
   ESTADOS,
   SERVICIOS,
-  SERVICIO_POR_PUNTO,
   ETIQUETA_SERVICIO,
   type EstadoLead,
   type OrigenLead,
@@ -299,7 +299,7 @@ export const FUENTES = [
     nombre: servicio === "encargo" ? "Encargo personalizado" : servicio === "formularios-llc" ? "Formularios LLC" : servicio === "cierre-llc" ? "Cierre de LLC" : `Contacto ? ${ETIQUETA_SERVICIO[servicio]}`,
     url: servicio === "encargo" ? "/encargo-personalizado" : servicio === "formularios-llc" ? "/formularios-llc" : servicio === "cierre-llc" ? "/cierra-tu-llc" : `/contacto?servicio=${servicio}`,
   })),
-  ...Object.values(SERVICIO_POR_PUNTO).map((servicio) => ({
+  ...[...new Set(Object.values(SERVICIO_POR_CASO))].map((servicio) => ({
     origen: "empezar" as const,
     servicio,
     nombre: `Asistente ? ${ETIQUETA_SERVICIO[servicio]}`,

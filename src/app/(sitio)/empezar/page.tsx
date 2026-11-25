@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Eyebrow } from "@/components/brand/cta";
 import { FormationWizard, type Punto } from "@/components/wizard/formation-wizard";
 import { PLANES_ASISTENTE, type PlanAsistente } from "@/lib/site";
+import { formulariosVisibles } from "@/lib/visibilidad";
 
 export const metadata: Metadata = {
   title: "Empieza aquí",
@@ -26,6 +27,7 @@ export default async function EmpezarPage({
   const puntoInicial = typeof paquete === "string" ? desdePaquete[paquete] : undefined;
   const plan =
     typeof planParam === "string" && planParam in PLANES_ASISTENTE ? (planParam as PlanAsistente) : undefined;
+  const formulariosAbiertos = await formulariosVisibles();
 
   return (
     <section className="relative overflow-hidden pb-24 md:pb-32">
@@ -46,7 +48,11 @@ export default async function EmpezarPage({
           </p>
         </div>
         <div className="mt-12">
-          <FormationWizard puntoInicial={plan ? "crear" : puntoInicial} plan={plan} />
+          <FormationWizard
+            puntoInicial={plan ? "crear" : puntoInicial}
+            plan={plan}
+            formulariosAbiertos={formulariosAbiertos}
+          />
         </div>
       </div>
     </section>

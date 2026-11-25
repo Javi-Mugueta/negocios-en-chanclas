@@ -55,61 +55,6 @@ export const estadosConstitucionResto = [
 ];
 export const estadosConstitucion = [...estadosConstitucionDestacados, ...estadosConstitucionResto];
 
-export type Paquete = {
-  id: string;
-  nombre: string;
-  lema: string;
-  servicio: string;
-  precio?: string;
-  destacado?: boolean;
-  incluye: string[];
-  cta: string;
-};
-
-export const paquetes: Paquete[] = [
-  {
-    id: "arranque",
-    nombre: "Arranque",
-    lema: "Para quien todavía está con la toalla en la mano.",
-    servicio: "Constitución de tu LLC",
-    incluye: [
-      "Ayuda para elegir estado (New Mexico, Wyoming, Delaware…)",
-      "Registro de la LLC y los Articles of Organization, el documento de constitución",
-      "Número EIN listo en 48 horas",
-      "Atención en español e inglés durante el proceso",
-    ],
-    cta: "Quiero empezar",
-  },
-  {
-    id: "en-regla",
-    nombre: "En regla",
-    lema: "La cita anual con el IRS, sin sudores.",
-    servicio: "Presentación de los formularios 1120 y 5472",
-    destacado: true,
-    incluye: [
-      "Formulario guiado para recoger tus datos",
-      "Revisión contigo y presentación de los formularios ante el IRS",
-      "Para LLC de un socio (single member)",
-      "Si es tu primera presentación, también se declara el coste de constitución",
-      "Pago con tarjeta en el propio formulario",
-    ],
-    cta: "Preparar mi presentación",
-  },
-  {
-    id: "cierre",
-    nombre: "Cierre de LLC",
-    lema: "Nos encargamos de cerrarla bien, de principio a fin.",
-    servicio: "Cierre de tu LLC",
-    precio: "467 $ + tasas del estado",
-    incluye: [
-      "Disolución de la LLC ante su estado",
-      "Última declaración ante el IRS: los formularios 1120 y 5472 finales",
-      "Cierre del EIN ante el IRS",
-    ],
-    cta: "Cierra tu LLC",
-  },
-];
-
 export type Plan = {
   id: "basico" | "estandar" | "encargo";
   servicio: string;
@@ -178,19 +123,31 @@ export const planes: Plan[] = [
 ];
 
 export const PLANES_ASISTENTE = {
-  basico: "Plan Básico (397$)",
-  estandar: "Plan Estándar (497$)",
+  basico: "Plan Básico (397 $ primer año)",
+  estandar: "Plan Estándar (497 $ primer año)",
 } as const;
 export type PlanAsistente = keyof typeof PLANES_ASISTENTE;
 
 /** Formularios LLC del ejercicio 2026. */
 export const formulariosLlc = {
   ejercicio: 2026,
-  precio: "169$",
+  nombre: "Formularios anuales 1120/5472",
+  precio: "169 $",
+  descripcion:
+    "Si tu LLC es de un solo socio y no resides en EE. UU., cada año tienes que presentar al IRS el formulario 5472 junto a un 1120 pro forma. Nos pasas los datos y los movimientos del año, los preparamos y los presentamos por ti.",
   pago: "https://buy.stripe.com/dRm00j7572Ru0MX2RZcV22k",
   avisoPago:
     "El pago se realizará a Leaving Vorkuta LLC directamente a través de Stripe, mercantil responsable de la prestación del servicio.",
 };
+
+/** Requisitos para contratar Formularios LLC (disclaimer de /formularios-llc). */
+export const requisitosFormularios = [
+  "Tu LLC tiene un solo socio: si tienes dos o más, requieres compliance adicional. Ponte en contacto con nosotros para que te informemos.",
+  "El socio no es ciudadano estadounidense ni residente fiscal en EE. UU.",
+  "La LLC no tiene oficina, empleados ni almacén físico en USA.",
+  "La LLC está al día: has presentado formularios otros años si debías y tienes un agente registrador activo y contratado.",
+  "No has recibido ninguna carta o multa de la IRS que haya que tener en cuenta.",
+];
 
 /** Cierre de LLC (/cierra-tu-llc). Solo Wyoming y Nuevo México, un socio. */
 export const cierreLlc = {

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { Eyebrow } from "@/components/brand/cta";
 import { FormulariosLlcForm } from "@/components/formularios-llc-form";
-import { contacto, formulariosLlc } from "@/lib/site";
+import { contacto, formulariosLlc, requisitosFormularios } from "@/lib/site";
 import { formulariosVisibles } from "@/lib/visibilidad";
 
 export const metadata: Metadata = {
@@ -12,13 +12,7 @@ export const metadata: Metadata = {
   description: `Envíanos los datos de tu LLC para preparar los formularios del ejercicio ${formulariosLlc.ejercicio}. Servicio de ${formulariosLlc.precio}.`,
 };
 
-const requisitos = [
-  "Tu LLC tiene un solo socio: si tienes dos o más, requieres compliance adicional. Ponte en contacto con nosotros para que te informemos.",
-  "El socio no es ciudadano estadounidense ni residente fiscal en EE. UU.",
-  "La LLC no tiene oficina, empleados ni almacén físico en USA.",
-  "La LLC está al día: has presentado formularios otros años si debías y tienes un agente registrador activo y contratado.",
-  "No has recibido ninguna carta o multa de la IRS que haya que tener en cuenta.",
-];
+const requisitos = requisitosFormularios;
 
 export default async function FormulariosLlcPage() {
   // Si NEC_FORMULARIOS_LAUNCH está definida y aún no ha llegado, la página no existe: 404 y fuera del índice.
