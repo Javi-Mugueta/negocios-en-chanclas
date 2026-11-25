@@ -517,3 +517,43 @@ test("el asistente rechaza crear sin aceptar los términos", async () => {
   expect(json.errors.aceptaTerminos).toBeTruthy();
   expect(await estado.db!.query("select id from nec.leads")).toHaveLength(0);
 });
+
+test("si Resend falla, el lead se guarda igual y la respuesta es correcta", async () => {
+  const antes = { ...process.env };
+  process.env.RESEND_API_KEY = "re_prueba";
+  process.env.NEC_AVISO_FROM = "Avisos <avisos@example.com>";
+  process.env.NEC_AVISO_TO = "equipo@example.com";
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const fetchFalso = vi.fn(async () => {
+    throw new TypeError("fetch failed");
+  });
+  vi.stubGlobal("fetch", fetchFalso);
+  try {
+    const res = await empezar(
+      post("/api/empezar", {
+        punto: "crear",
+        tipo: "llc-1",
+        estado: "New Mexico",
+        nombre: "Marta López",
+        email: "marta@example.com",
+        telefono: "+34 600 000 000",
+        plan: "basico",
+        alta: ALTA,
+        consentimiento: true,
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
+    const filas = await estado.db!.query("select servicio from nec.leads where email = 'marta@example.com'");
+    expect(filas).toEqual([{ servicio: "arranque" }]);
+
+    const res2 = await contacto(post("/api/contacto", contactoOk, { "x-forwarded-for": "203.0.113.9" }));
+    expect(res2.status).toBe(200);
+    expect(fetchFalso).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.unstubAllGlobals();
+    log.mockRestore();
+    process.env = antes;
+  }
+});
