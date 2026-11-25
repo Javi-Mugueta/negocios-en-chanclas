@@ -273,8 +273,8 @@ const formularioOk = {
   pagina: "/formularios-llc",
 };
 
-test("formularios LLC no admite envíos antes del 1 de enero de 2027 (hora de Madrid)", async () => {
-  delete process.env.NEC_FORMULARIOS_PREVIEW;
+test("formularios LLC no admite envíos antes de NEC_FORMULARIOS_LAUNCH (hora de Madrid)", async () => {
+  process.env.NEC_FORMULARIOS_LAUNCH = "2027-01-01T00:00";
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-12-31T22:59:59.000Z"));
   const antes = await formularios(post("/api/formularios-llc", formularioOk));
@@ -283,10 +283,11 @@ test("formularios LLC no admite envíos antes del 1 de enero de 2027 (hora de Ma
   const despues = await formularios(post("/api/formularios-llc", formularioOk));
   expect(despues.status).toBe(200);
   vi.useRealTimers();
+  delete process.env.NEC_FORMULARIOS_LAUNCH;
 });
 
 test("formularios LLC guarda los datos, mantiene el cero del código postal y no los escribe en el log", async () => {
-  process.env.NEC_FORMULARIOS_PREVIEW = "1";
+  delete process.env.NEC_FORMULARIOS_LAUNCH;
   const log = vi.spyOn(console, "error").mockImplementation(() => {});
   const info = vi.spyOn(console, "log").mockImplementation(() => {});
   const res = await formularios(post("/api/formularios-llc", formularioOk));
@@ -316,7 +317,7 @@ test("formularios LLC guarda los datos, mantiene el cero del código postal y no
 });
 
 test("formularios LLC valida EIN, nombre de la LLC, estado, importes y las tres casillas", async () => {
-  process.env.NEC_FORMULARIOS_PREVIEW = "1";
+  delete process.env.NEC_FORMULARIOS_LAUNCH;
   const res = await formularios(
     post("/api/formularios-llc", {
       ...formularioOk,

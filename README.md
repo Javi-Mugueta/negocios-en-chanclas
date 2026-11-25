@@ -34,7 +34,7 @@ Solo los nombres. Los valores viven en el alojamiento (producción y vista previ
 | `NEC_ADMIN_USER` | Usuario único del panel. |
 | `NEC_ADMIN_PASSWORD_HASH` | Hash bcrypt de la contraseña del panel. |
 | `NEC_IP_SALT` | Sal para guardar un código de la IP, nunca la dirección en claro. |
-| `NEC_FORMULARIOS_PREVIEW` | Opcional. Con `1`, `/formularios-llc` (y su banner y entrada de menú) se ve antes del 1 de enero de 2027. |
+| `NEC_FORMULARIOS_LAUNCH` | Opcional. Fecha ISO (p. ej. `2027-01-01T00:00`; sin zona se entiende hora de Madrid). Si está definida, `/formularios-llc` (y su banner, entrada de menú y enlace en el sitemap) queda oculta hasta ese momento. Sin definir, está siempre visible. Un valor ilegible la deja oculta. |
 
 Para generar el hash de la contraseña, sin dejarla en el repo:
 
@@ -57,7 +57,7 @@ El panel está en `/panel`. Desde ahí se filtran las consultas, se cambia el es
 | Ruta | Contenido |
 | --- | --- |
 | `/` | Portada: hero, el camino en 4 pasos, tipos de empresa, servicios, transparencia, atención humana, preguntas frecuentes |
-| `/formularios-llc` | Formularios LLC del ejercicio 2026: requisitos, formulario de datos, casillas obligatorias y pantalla de pago (169 $, Stripe). Oculta (404, fuera del sitemap, del menú y del banner de la home) hasta el 1 de enero de 2027 a las 00:00 de Madrid; se evalúa en cada petición (`src/lib/visibilidad.ts`) |
+| `/formularios-llc` | Formularios LLC del ejercicio 2026: requisitos, formulario de datos, casillas obligatorias y pantalla de pago (169 $, Stripe). Visible por defecto; si se define `NEC_FORMULARIOS_LAUNCH`, oculta (404, fuera del sitemap, del menú y del banner de la home) hasta esa fecha en hora de Madrid; se evalúa en cada petición (`src/lib/visibilidad.ts`) |
 | `/cierra-tu-llc` | Cierre de LLC (467 $ + tasas del estado, solo Wyoming y Nuevo México con un socio): formulario de 14 campos, casillas y pantalla de pago en Stripe. Otro estado o dos o más socios → contacto |
 | `/encargo-personalizado` | Formulario corto (nombre y email) del encargo personalizado |
 | `/empezar` | Asistente en 5 pasos (punto de partida, tipo de empresa, estado, nombre, contacto). Al final pide consentimiento y guarda la consulta. Admite `?paquete=arranque` o `en-regla`, y `?plan=basico` o `estandar` (se guarda en la consulta). «Quiero cerrar mi LLC» y `?paquete=cierre` llevan a `/cierra-tu-llc` |

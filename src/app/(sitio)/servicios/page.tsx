@@ -100,7 +100,7 @@ function servicios(formulariosAbiertos: boolean): Servicio[] {
         "Si tu LLC es de un solo socio y no resides en EE. UU., cada año tienes que presentar al IRS el formulario 5472 junto a un 1120 pro forma. Nos pasas los datos y los movimientos del año, los preparamos y los presentamos por ti.",
       precio: "169 $",
       cta: "Presentar mis formularios",
-      // /formularios-llc no se abre hasta el 1 de enero de 2027: mientras tanto, al contacto.
+      // Mientras /formularios-llc esté oculta (NEC_FORMULARIOS_LAUNCH), al contacto.
       href: formulariosAbiertos ? "/formularios-llc" : "/contacto?servicio=en-regla",
     },
   ];
