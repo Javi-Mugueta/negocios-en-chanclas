@@ -8,7 +8,7 @@ import { esLocal, quitarSslMode } from "@/lib/db";
 import { enlaceWhatsapp } from "@/lib/telefono";
 import { esHoneypot, validarContacto, validarEmpezar } from "@/lib/validacion";
 import { estadosConstitucion, navegacion, planes } from "@/lib/site";
-import { formulariosAbiertos } from "@/lib/visibilidad";
+import { formulariosAbiertos, leerLanzamiento } from "@/lib/visibilidad";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
 process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
@@ -130,13 +130,35 @@ describe("validación", () => {
 });
 
 describe("visibilidad de Formularios LLC", () => {
-  test("se abre el 1 de enero de 2027 a las 00:00 de Madrid", () => {
-    delete process.env.NEC_FORMULARIOS_PREVIEW;
+  test("sin NEC_FORMULARIOS_LAUNCH está siempre a la vista", () => {
+    delete process.env.NEC_FORMULARIOS_LAUNCH;
+    expect(formulariosAbiertos(new Date("2026-11-25T10:00:00.000Z"))).toBe(true);
+    process.env.NEC_FORMULARIOS_LAUNCH = "  ";
+    expect(formulariosAbiertos(new Date("2026-11-25T10:00:00.000Z"))).toBe(true);
+    delete process.env.NEC_FORMULARIOS_LAUNCH;
+  });
+
+  test("con NEC_FORMULARIOS_LAUNCH se abre a esa hora de Madrid", () => {
+    process.env.NEC_FORMULARIOS_LAUNCH = "2027-01-01T00:00";
     expect(formulariosAbiertos(new Date("2026-12-31T22:59:59.999Z"))).toBe(false);
     expect(formulariosAbiertos(new Date("2026-12-31T23:00:00.000Z"))).toBe(true);
-    process.env.NEC_FORMULARIOS_PREVIEW = "1";
-    expect(formulariosAbiertos(new Date("2026-11-25T10:00:00.000Z"))).toBe(true);
-    delete process.env.NEC_FORMULARIOS_PREVIEW;
+    // Horario de verano (CEST = UTC+2).
+    process.env.NEC_FORMULARIOS_LAUNCH = "2027-07-01T09:30:00";
+    expect(formulariosAbiertos(new Date("2027-07-01T07:29:59.999Z"))).toBe(false);
+    expect(formulariosAbiertos(new Date("2027-07-01T07:30:00.000Z"))).toBe(true);
+    // Con zona explícita se respeta.
+    process.env.NEC_FORMULARIOS_LAUNCH = "2027-01-01T00:00:00Z";
+    expect(formulariosAbiertos(new Date("2026-12-31T23:30:00.000Z"))).toBe(false);
+    expect(formulariosAbiertos(new Date("2027-01-01T00:00:00.000Z"))).toBe(true);
+    delete process.env.NEC_FORMULARIOS_LAUNCH;
+  });
+
+  test("una fecha ilegible la mantiene oculta", () => {
+    expect(leerLanzamiento("mañana")).toBeNull();
+    expect(leerLanzamiento("2027-02-30T00:00")).toBeNull();
+    process.env.NEC_FORMULARIOS_LAUNCH = "mañana";
+    expect(formulariosAbiertos(new Date("2030-01-01T00:00:00.000Z"))).toBe(false);
+    delete process.env.NEC_FORMULARIOS_LAUNCH;
   });
 
   test("el menú solo enseña Formularios LLC cuando está abierta", () => {

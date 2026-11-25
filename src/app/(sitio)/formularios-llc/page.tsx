@@ -21,7 +21,7 @@ const requisitos = [
 ];
 
 export default async function FormulariosLlcPage() {
-  // Antes del 1 de enero de 2027 (hora de Madrid) la página no existe: 404 y fuera del índice.
+  // Si NEC_FORMULARIOS_LAUNCH está definida y aún no ha llegado, la página no existe: 404 y fuera del índice.
   if (!(await formulariosVisibles())) notFound();
 
   return (
