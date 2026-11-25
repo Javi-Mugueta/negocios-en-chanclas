@@ -65,7 +65,10 @@ const entidades: Entidad[] = [
         k: "Qué presentar cada año",
         v: "Su propia declaración de sociedades, además de las obligaciones del estado.",
       },
-      { k: "Con nosotros", v: "Servicio a medida, bajo petición. Cuéntanos el proyecto y lo preparamos contigo." },
+      {
+        k: "Con nosotros",
+        v: "La hacemos a medida: cada corporación requiere hablar contigo 1 a 1 y una propuesta personalizada. Escríbenos desde la web y lo vemos.",
+      },
     ],
   },
 ];
@@ -118,7 +121,7 @@ export function Entities() {
                     variant="light"
                     className="self-start"
                   >
-                    {e.id === "corp" ? "Pedirla a medida" : "Entender la LLC"}
+                    {e.id === "corp" ? "Contactar para una C-Corp" : "Entender la LLC"}
                   </CtaLink>
                 </div>
                 <dl className="divide-y divide-tinta/10 lg:col-span-7">

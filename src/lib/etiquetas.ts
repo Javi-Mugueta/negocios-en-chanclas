@@ -4,7 +4,16 @@ export type EstadoLead = (typeof ESTADOS)[number];
 export const ORIGENES = ["contacto", "empezar"] as const;
 export type OrigenLead = (typeof ORIGENES)[number];
 
-export const SERVICIOS = ["arranque", "en-regla", "cierre", "corporacion", "web", "otra"] as const;
+export const SERVICIOS = [
+  "arranque",
+  "en-regla",
+  "formularios-llc",
+  "encargo",
+  "cierre",
+  "corporacion",
+  "web",
+  "otra",
+] as const;
 export type ServicioLead = (typeof SERVICIOS)[number];
 
 export const ETIQUETA_ESTADO: Record<EstadoLead, string> = {
@@ -24,6 +33,8 @@ export const ETIQUETA_ORIGEN: Record<OrigenLead, string> = {
 export const ETIQUETA_SERVICIO: Record<string, string> = {
   arranque: "Constituir una LLC",
   "en-regla": "Presentación anual 1120 + 5472",
+  "formularios-llc": "Formularios LLC 2026",
+  encargo: "Encargo personalizado",
   cierre: "Cerrar la LLC",
   corporacion: "Corporación (C-Corp)",
   web: "Web, tienda o SEO",

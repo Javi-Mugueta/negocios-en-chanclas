@@ -52,7 +52,13 @@ export default function LegalPage() {
           <p>
             Nombre, email y, si lo indicas, teléfono. En el formulario de contacto, el servicio que
             te interesa y tu mensaje. En el asistente, las respuestas: punto de partida, tipo de
-            LLC, estado, nombre de la empresa y tus datos de contacto. También guardamos la página
+            LLC, estado, nombre de la empresa y tus datos de contacto. En el formulario de
+            Formularios LLC, además, los datos que necesitamos para preparar los formularios de tu
+            LLC: número de pasaporte, nacionalidad, dirección de residencia, nombre, EIN, dirección,
+            fecha de constitución y actividad de la LLC, los importes del ejercicio (dinero sacado de
+            la LLC, dinero aportado y saldo a 31 de diciembre) y las confirmaciones que marcas. El
+            pago de ese servicio se hace en Stripe, fuera de esta web: no vemos ni guardamos los datos
+            de tu tarjeta. También guardamos la página
             desde la que escribiste, los parámetros de campaña (UTM) si venían en el enlace, un
             identificador calculado a partir de tu IP —no la IP en claro— y el identificador de tu
             navegador.

@@ -1,3 +1,4 @@
+import { FormulariosBanner } from "@/components/home/formularios-banner";
 import { Hero } from "@/components/home/hero";
 import { StatesMarquee } from "@/components/home/states-marquee";
 import { Path } from "@/components/home/path";
@@ -11,6 +12,7 @@ import { FinalCta } from "@/components/final-cta";
 export default function Home() {
   return (
     <>
+      <FormulariosBanner />
       <Hero />
       <StatesMarquee />
       <Path />

@@ -1,0 +1,81 @@
+import { Check } from "lucide-react";
+import { CtaLink } from "@/components/brand/cta";
+import { Reveal } from "@/components/reveal";
+import { planes } from "@/lib/site";
+import { cn } from "@/lib/utils";
+
+export function PlanCards() {
+  return (
+    <div className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
+      {planes.map((p, i) => (
+        <Reveal key={p.id} delay={i * 120} className="h-full">
+          <article
+            id={`plan-${p.id}`}
+            className={cn(
+              "relative flex h-full flex-col rounded-[2rem] p-8 transition-all duration-500 hover:-translate-y-1",
+              p.destacado
+                ? "bg-tinta text-arena shadow-[0_40px_80px_-40px_rgba(19,41,61,0.8)] lg:-my-4 lg:py-12"
+                : "border border-tinta/10 bg-card hover:shadow-[0_24px_48px_-28px_rgba(19,41,61,0.35)]",
+            )}
+          >
+            {p.destacado && (
+              <span className="absolute -top-3.5 left-8 rounded-full bg-chancla px-3.5 py-1 text-xs font-bold tracking-wide text-white uppercase shadow-lg">
+                El más pedido
+              </span>
+            )}
+            <p
+              className={cn(
+                "font-mono text-xs font-medium tracking-[0.16em] uppercase",
+                p.destacado ? "text-sol" : "text-chancla-2",
+              )}
+            >
+              {p.servicio}
+            </p>
+            <h3 className="mt-3 text-3xl font-bold">{p.nombre}</h3>
+            <p className={cn("mt-2", p.destacado ? "text-arena/70" : "text-tinta/65")}>«{p.lema}»</p>
+
+            <p
+              className={cn(
+                "mt-7 font-display font-extrabold",
+                p.id === "encargo" ? "text-3xl" : "text-5xl",
+              )}
+            >
+              {p.precio}
+            </p>
+
+            <div className={cn("my-7 h-px", p.destacado ? "bg-arena/15" : "bg-tinta/10")} />
+
+            {p.id === "encargo" ? (
+              <p className="flex-1 leading-relaxed text-tinta/80">{p.incluye[0]}</p>
+            ) : (
+              <>
+                <p className={cn("text-sm font-semibold", p.destacado ? "text-arena/60" : "text-tinta/55")}>
+                  Incluye:
+                </p>
+                <ul className="mt-3 flex-1 space-y-3.5">
+                  {p.incluye.map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span
+                        className={cn(
+                          "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full",
+                          p.destacado ? "bg-chancla text-white" : "bg-chancla/15 text-chancla-2",
+                        )}
+                      >
+                        <Check className="size-3" strokeWidth={3} />
+                      </span>
+                      <span className={p.destacado ? "text-arena/85" : "text-tinta/80"}>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            <CtaLink href={p.href} variant={p.destacado ? "primary" : "dark"} className="mt-9 w-full">
+              {p.cta}
+            </CtaLink>
+          </article>
+        </Reveal>
+      ))}
+    </div>
+  );
+}

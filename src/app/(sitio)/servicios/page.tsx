@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ClipboardList, SearchCheck, Send } from "lucide-react";
 import { CtaLink, Eyebrow } from "@/components/brand/cta";
 import { FinalCta } from "@/components/final-cta";
-import { PackageCards } from "@/components/package-cards";
+import { PlanCards } from "@/components/plan-cards";
 import { Reveal } from "@/components/reveal";
 import { checklistPresentacion, serviciosComplementarios, serviciosDigitales, tiposLlc } from "@/lib/site";
 
@@ -54,7 +54,7 @@ export default function ServiciosPage() {
 
       <section className="py-16 md:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <PackageCards />
+          <PlanCards />
         </div>
       </section>
 
@@ -85,8 +85,8 @@ export default function ServiciosPage() {
           </div>
           <AperturaBancaria />
           <p className="mt-8 text-tinta/70">
-            Las corporaciones (C-Corp) las preparamos <strong className="text-tinta">a medida</strong>,
-            bajo petición.{" "}
+            Las corporaciones (C-Corp) las hacemos <strong className="text-tinta">a medida</strong>:
+            cada una requiere hablar contigo 1 a 1 y una propuesta personalizada.{" "}
             <Link
               href="/contacto?servicio=corporacion"
               className="font-semibold text-chancla-2 underline decoration-chancla/40 underline-offset-4"
@@ -154,7 +154,7 @@ export default function ServiciosPage() {
               ))}
             </div>
             <div className="mt-10">
-              <CtaLink href="/contacto?servicio=en-regla">Preparar mi presentación</CtaLink>
+              <CtaLink href="/formularios-llc">Preparar mi presentación</CtaLink>
             </div>
           </div>
         </div>

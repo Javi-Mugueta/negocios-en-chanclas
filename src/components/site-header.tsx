@@ -42,7 +42,7 @@ export function SiteHeader() {
           <Logo />
         </Link>
 
-        <nav aria-label="Principal" className="hidden items-center gap-1 lg:flex">
+        <nav aria-label="Principal" className="hidden items-center gap-0.5 xl:flex">
           {nav.map((item) => {
             const active = pathname === item.href;
             return (
@@ -51,25 +51,25 @@ export function SiteHeader() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative rounded-full px-4 py-2 text-[0.92rem] font-medium text-tinta/75 transition-colors hover:text-tinta",
+                  "relative rounded-full px-3 py-2 text-[0.92rem] font-medium text-tinta/75 transition-colors hover:text-tinta",
                   active && "text-tinta",
                 )}
               >
                 {item.label}
                 {active && (
-                  <span className="absolute inset-x-4 -bottom-0.5 h-0.5 rounded-full bg-chancla" />
+                  <span className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-chancla" />
                 )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-3 xl:flex">
           <a
             href={contacto.whatsapp.espana.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-medium text-tinta/70 transition-colors hover:text-tinta"
+            className="hidden items-center gap-2 text-sm font-medium text-tinta/70 transition-colors hover:text-tinta 2xl:inline-flex"
           >
             <Phone className="size-4" aria-hidden="true" />
             <span className="sr-only">WhatsApp España </span>
@@ -82,7 +82,7 @@ export function SiteHeader() {
 
         <Sheet>
           <SheetTrigger
-            className="inline-flex size-11 items-center justify-center rounded-full ring-1 ring-tinta/15 transition hover:bg-tinta/5 lg:hidden"
+            className="inline-flex size-11 items-center justify-center rounded-full ring-1 ring-tinta/15 transition hover:bg-tinta/5 xl:hidden"
             aria-label="Abrir menú"
           >
             <Menu className="size-5" />

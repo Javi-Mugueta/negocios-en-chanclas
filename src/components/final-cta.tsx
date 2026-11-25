@@ -4,7 +4,7 @@ import { contacto } from "@/lib/site";
 
 export function FinalCta({
   titulo = "Pon los pies en alto.",
-  subtitulo = "Del papeleo nos encargamos con calma.",
+  subtitulo = "Del papeleo nos encargamos nosotros.",
 }: {
   titulo?: string;
   subtitulo?: string;
