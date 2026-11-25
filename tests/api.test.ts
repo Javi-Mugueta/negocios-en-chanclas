@@ -432,3 +432,16 @@ test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
   expect(datos.plan).toBe("estandar");
   expect(datos.planEtiqueta).toBe("Plan Estándar (497$)");
 });
+
+test("fuentes incluye combinaciones vacías y cuenta por origen y servicio en hora de Madrid", async () => {
+  const { contadoresFuentes, filtrosDesdeUrl, listarLeads } = await import("@/lib/leads");
+  const db = estado.db!;
+  await contacto(post("/api/contacto", contactoOk));
+  await db.query("update nec.leads set created_at = $1", ["2026-11-25T10:00:00Z"]);
+  const fuentes = await contadoresFuentes(db, new Date("2026-11-25T12:00:00Z"));
+  expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "en-regla")).toMatchObject({ total: 1, hoy: 1, semana: 1 });
+  expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "en-regla")).toMatchObject({ total: 0, hoy: 0, semana: 0 });
+  expect(fuentes.find((f) => f.servicio === "encargo")?.url).toBe("/encargo-personalizado");
+  const filtros = filtrosDesdeUrl(new URL("https://negociosenchanclas.com/panel?origen=empezar&servicio=en-regla"));
+  expect((await listarLeads(db, filtros)).total).toBe(0);
+});
