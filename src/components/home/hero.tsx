@@ -5,8 +5,8 @@ import { estadosDestacados } from "@/lib/site";
 
 const pasos = [
   { label: "Estado elegido", detail: estadosDestacados.join(" · "), icon: MapPin },
-  { label: "Articles of Organization", detail: "Documento de constitución", icon: FileText },
-  { label: "Número EIN", detail: "Listo en 48 horas", icon: Check },
+  { label: "Articles of Organization", detail: "Correctamente emitidos y validados", icon: FileText },
+  { label: "Número de EIN", detail: "Emitido por el IRS en 48 h", icon: Check },
 ];
 
 export function Hero() {
@@ -68,7 +68,7 @@ export function Hero() {
           </div>
 
           <ul className="mt-12 grid max-w-xl grid-cols-1 gap-x-6 gap-y-3 text-sm text-tinta/70 sm:grid-cols-3">
-            {["Atención en español e inglés", "WhatsApp en España y EE. UU.", "LLC de un socio o con varios"].map(
+            {["Atención en español e inglés", "Servicios complementarios", "Apertura guiada de cuenta bancaria"].map(
               (t) => (
                 <li key={t} className="flex items-center gap-2">
                   <span className="grid size-5 place-items-center rounded-full bg-chancla/15 text-chancla-2">

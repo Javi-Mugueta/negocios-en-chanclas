@@ -20,7 +20,33 @@ const CAMPOS: Record<string, string> = {
   tipoEtiqueta: "Tipo de empresa",
   estado: "Estado",
   nombreLlc: "Nombre de la LLC",
+  planEtiqueta: "Plan elegido",
 };
+
+/** Formularios LLC: orden y etiquetas de la ficha. */
+const CAMPOS_FORMULARIOS: [string, string][] = [
+  ["ejercicio", "Ejercicio"],
+  ["pasaporte", "Número de pasaporte"],
+  ["nacionalidad", "Nacionalidad"],
+  ["direccion", "Dirección de residencia"],
+  ["ciudad", "Ciudad"],
+  ["paisResidencia", "País de residencia"],
+  ["codigoPostal", "Código postal"],
+  ["nombreLlc", "Nombre de la LLC"],
+  ["ein", "EIN"],
+  ["direccionLlc", "Dirección de la LLC en EE. UU."],
+  ["fechaConstitucion", "Fecha de constitución"],
+  ["actividad", "Actividad"],
+  ["retiros", "Sacado de la LLC para el socio (USD)"],
+  ["aportaciones", "Transferido por el socio a la LLC (USD)"],
+  ["saldo", "Saldo a 31 de diciembre (USD)"],
+];
+
+const CHECKS_FORMULARIOS: [string, string][] = [
+  ["unicoSocio", "Soy el único socio de la LLC"],
+  ["resideFuera", "Resido fuera de EE. UU."],
+  ["datosCorrectos", "Los datos son correctos y completos y soy el responsable de su veracidad"],
+];
 
 export default async function DetallePage({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await sesionActual();
@@ -46,7 +72,9 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
   if (!lead) notFound();
 
   const whatsapp = enlaceWhatsapp(lead.telefono);
+  const esFormularios = lead.servicio === "formularios-llc";
   const respuestas = Object.entries(lead.datos).filter(([clave, valor]) => {
+    if (esFormularios) return false;
     if (!(clave in CAMPOS)) return false;
     if (clave === "nombreLlc" && (valor == null || valor === "") && lead.datos.sinNombre === true) return false;
     return true;
@@ -112,6 +140,25 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
             <section className="rounded-[1.5rem] border border-tinta/10 bg-card p-5">
               <h2 className="text-lg font-bold">Mensaje</h2>
               <p className="mt-3 whitespace-pre-wrap text-tinta/80">{lead.mensaje}</p>
+            </section>
+          )}
+
+          {esFormularios && (
+            <section className="rounded-[1.5rem] border border-tinta/10 bg-card p-5">
+              <h2 className="text-lg font-bold">Formularios LLC</h2>
+              <dl className="mt-4 space-y-3 text-sm">
+                {CAMPOS_FORMULARIOS.map(([clave, etiqueta]) => {
+                  const valor = lead.datos[clave];
+                  return <Fila key={clave} k={etiqueta} v={valor == null || valor === "" ? "—" : String(valor)} />;
+                })}
+                {CHECKS_FORMULARIOS.map(([clave, etiqueta]) => (
+                  <Fila key={clave} k={etiqueta} v={lead.datos[clave] === true ? "Marcado" : "No"} />
+                ))}
+              </dl>
+              <p className="mt-4 text-xs text-tinta/55">
+                El pago (169$) se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la
+                referencia {lead.id}.
+              </p>
             </section>
           )}
 

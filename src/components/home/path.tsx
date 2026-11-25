@@ -4,27 +4,25 @@ import { Reveal } from "@/components/reveal";
 const pasos = [
   {
     n: "01",
-    titulo: "Nos cuentas tu idea",
-    texto:
-      "Por WhatsApp o con el formulario, desde España o EE. UU. Sin jerga: primero entendemos qué quieres montar.",
+    titulo: "Contactas con nosotros",
+    texto: "Nos cuentas tu idea, caso, necesidades, inquietudes y validamos tu modelo.",
   },
   {
     n: "02",
-    titulo: "Eliges estado y estructura",
-    texto:
-      "New Mexico, Wyoming, Delaware… Te explicamos las diferencias en cristiano y decides con calma: LLC de un socio o con varios socios.",
+    titulo: "Elegimos la estructura correcta para ti",
+    texto: "Nos aseguramos de que la LLC es para ti y que no vas a tirar ni tiempo ni dinero.",
   },
   {
     n: "03",
-    titulo: "Tu LLC toma forma",
+    titulo: "Abrimos tu LLC",
     texto:
-      "Preparamos los Articles of Organization —el documento de constitución de la LLC—, el número EIN y lo necesario para empezar a operar. Te lo dejamos ordenado.",
+      "En los términos estipulados, a tu medida y según tus necesidades, dándote lo que necesitas, ni más ni menos.",
   },
   {
     n: "04",
     titulo: "Cada año, en regla",
     texto:
-      "Llega la presentación de los formularios 1120 y 5472: rellenas un formulario guiado, lo revisamos contigo y lo presentamos nosotros.",
+      "Estamos ahí, año tras año, presentando el Compliance necesario, manteniendo tu set up y no dejando que incurras en irregularidades en EE. UU.",
   },
 ];
 
@@ -39,7 +37,11 @@ export function Path() {
               Cuatro pasos. <span className="font-serif font-normal italic">Cero agobios.</span>
             </h2>
           </div>
-          <p className="text-lg text-tinta/70 md:col-span-5">Tu empresa en Estados Unidos</p>
+          <p className="text-lg text-tinta/70 md:col-span-5">
+            Tu empresa en Estados Unidos abierta en menos de un mes, con una cuenta bancaria
+            asegurada y abierta por un profesional. Acompañamiento real durante toda la vida útil de
+            tu negocio.
+          </p>
         </div>
 
         <ol className="relative mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-4">

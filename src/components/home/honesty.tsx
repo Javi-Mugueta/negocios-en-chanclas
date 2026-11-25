@@ -16,7 +16,7 @@ const pilares = [
   {
     icon: CreditCard,
     titulo: "Pago sencillo",
-    texto: "Pagas con tarjeta en el mismo formulario de tu presentación, sin pasos extra.",
+    texto: "Al terminar el formulario de tu presentación, pagas con tarjeta a través de Stripe.",
   },
 ];
 
@@ -45,12 +45,11 @@ export function Honesty() {
             <div className="relative rounded-[2rem] bg-arena p-8 text-tinta md:p-10">
               <Handshake className="size-9 text-chancla" aria-hidden="true" />
               <p className="mt-6 font-display text-2xl leading-snug font-bold md:text-3xl">
-                «Lo hacemos todo directamente: recogemos tus datos, los revisamos contigo y
-                presentamos los formularios.»
+                «No intermediamos: lo hacemos todo directamente.»
               </p>
               <p className="mt-5 text-tinta/65">
-                Lo dejamos por escrito en cada presentación. Sabes en todo momento qué estamos
-                haciendo, y nos aseguramos de que no falte ni un dato.
+                Sin nadie en medio. Recogemos tus datos, los revisamos contigo y hacemos nosotros cada
+                trámite. Sabes en todo momento qué estamos haciendo y con quién hablas.
               </p>
             </div>
           </Reveal>

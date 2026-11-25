@@ -8,14 +8,15 @@
 export const contacto = {
   direccion: ["500 4th St NW, Suite 102 #1272", "Albuquerque, New Mexico 87102", "EE. UU."],
   whatsapp: {
-    espana: { visible: "+34 659 308 119", href: "https://wa.me/34659308119" },
-    eeuu: { visible: "+1 505 295 4040", href: "https://wa.me/15052954040" },
+    espana: { visible: "+34 722 31 18 18", href: "https://wa.me/34722311818" },
+    eeuu: { visible: "+1 (505) 441 3252", href: "https://wa.me/15054413252" },
   },
 };
 
 export const nav = [
   { href: "/como-funciona-una-llc", label: "Cómo funciona una LLC" },
   { href: "/servicios", label: "Servicios" },
+  { href: "/formularios-llc", label: "Formularios LLC" },
   { href: "/#preguntas", label: "Preguntas" },
   { href: "/contacto", label: "Contacto" },
 ];
@@ -82,6 +83,77 @@ export const paquetes: Paquete[] = [
     cta: "Cerrar mi LLC",
   },
 ];
+
+export type Plan = {
+  id: "basico" | "estandar" | "encargo";
+  servicio: string;
+  nombre: string;
+  lema: string;
+  precio: string;
+  destacado?: boolean;
+  incluye: string[];
+  cta: string;
+  href: string;
+};
+
+const incluyeBasico = [
+  "Registro de la LLC en el Estado de Nuevo México",
+  "Agente registrador y dirección postal durante 1 año",
+  "EIN express (48 h)",
+  "Entrega vía email",
+];
+
+/** Propuesta comercial: constitución de la LLC. */
+export const planes: Plan[] = [
+  {
+    id: "basico",
+    servicio: "Constitución de tu LLC",
+    nombre: "Plan Básico",
+    lema: "Rápida, sencilla y autogestionada",
+    precio: "397$",
+    incluye: incluyeBasico,
+    cta: "Empezar con el Plan Básico",
+    href: "/empezar?paquete=arranque&plan=basico",
+  },
+  {
+    id: "estandar",
+    servicio: "Constitución de tu LLC",
+    nombre: "Plan Estándar",
+    lema: "Rápida, sencilla y con acompañamiento",
+    precio: "497$",
+    destacado: true,
+    incluye: [...incluyeBasico, "Consultoría de 45 min en la que resolvemos 1 a 1 tus dudas"],
+    cta: "Empezar con el Plan Estándar",
+    href: "/empezar?paquete=arranque&plan=estandar",
+  },
+  {
+    id: "encargo",
+    servicio: "Constitución de tu sociedad en USA",
+    nombre: "Encargo personalizado",
+    lema: "Si necesitas que un experto de verdad se siente contigo",
+    precio: "Precio por encargo",
+    incluye: [
+      "Para personas que quieran abrir una LLC de dos o más miembros, en otros estados, que quieran abrir una C Corp o que tengan una situación más compleja.",
+    ],
+    cta: "Quiero un encargo personalizado",
+    href: "/encargo-personalizado",
+  },
+];
+
+export const PLANES_ASISTENTE = {
+  basico: "Plan Básico (397$)",
+  estandar: "Plan Estándar (497$)",
+} as const;
+export type PlanAsistente = keyof typeof PLANES_ASISTENTE;
+
+/** Formularios LLC del ejercicio 2026. */
+export const formulariosLlc = {
+  ejercicio: 2026,
+  precio: "169$",
+  pago: "https://buy.stripe.com/dRm00j7572Ru0MX2RZcV22k",
+  avisoPago:
+    "El pago se realizará a Leaving Vorkuta LLC directamente a través de Stripe, mercantil responsable de la prestación del servicio.",
+};
 
 /** Servicios complementarios. Ninguno muestra precio. */
 export const serviciosComplementarios = [
@@ -171,28 +243,33 @@ export const serviciosDigitales = [
   },
 ];
 
-/** Datos que pide el formulario de presentación 1120 + 5472 de la web actual. */
+/** Datos que pide el formulario de /formularios-llc. */
 export const checklistPresentacion = [
-  { grupo: "Tus datos", items: ["Nombre y apellidos", "Teléfono y tu mejor email", "Dirección de residencia completa"] },
+  {
+    grupo: "Tus datos",
+    items: [
+      "Nombre y apellidos, tal como aparecen en el pasaporte",
+      "Número de pasaporte y país de nacionalidad",
+      "Dirección, ciudad, país y código postal de residencia",
+      "Email para recibir los formularios",
+    ],
+  },
   {
     grupo: "Tu LLC",
     items: [
-      "Nombre de la empresa",
-      "Actividad (código NAICS)",
-      "Número de miembros (1 o 2)",
-      "Dirección, ciudad, estado y código postal",
+      "Nombre de la LLC (terminado en «LLC»)",
       "Número EIN",
-      "Fecha de creación (la encontrarás en los Articles of Organization)",
+      "Dirección de la LLC en EE. UU. (mailbox o registered agent)",
+      "Fecha de constitución (la encontrarás en los Articles of Organization)",
+      "Actividad, en una frase en inglés",
     ],
   },
   {
     grupo: "Tus números del año",
     items: [
-      "Total facturado",
-      "Total de gastos",
-      "Transferido de la empresa al miembro",
-      "Transferido del miembro a la empresa",
-      "Coste de constitución, solo si es tu primera presentación",
+      "Dinero que has sacado de la LLC para ti",
+      "Dinero que has transferido tú a la LLC",
+      "Saldo total de las cuentas de la LLC a 31 de diciembre",
     ],
   },
 ];

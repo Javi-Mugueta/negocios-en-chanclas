@@ -18,6 +18,8 @@ vi.mock("@/lib/db", () => ({
 
 const { POST: contacto } = await import("@/app/api/contacto/route");
 const { POST: empezar } = await import("@/app/api/empezar/route");
+const { POST: encargo } = await import("@/app/api/encargo/route");
+const { POST: formularios } = await import("@/app/api/formularios-llc/route");
 const { POST: login } = await import("@/app/api/panel/login/route");
 const { POST: logout } = await import("@/app/api/panel/logout/route");
 const { GET: listar } = await import("@/app/api/panel/leads/route");
@@ -74,7 +76,7 @@ test("contacto guarda la consulta y el evento, y no la IP", async () => {
   const filas = await estado.db!.query("select email, consentimiento_version, ip_hash, utm, origen from nec.leads");
   expect(filas).toHaveLength(1);
   expect(filas[0].email).toBe("ana@example.com");
-  expect(filas[0].consentimiento_version).toBe("2026-11-23");
+  expect(filas[0].consentimiento_version).toBe("2026-11-25");
   expect(filas[0].origen).toBe("contacto");
   expect(String(filas[0].ip_hash)).not.toContain("203.0.113.8");
   const utm = filas[0].utm;
@@ -243,4 +245,111 @@ test("una búsqueda con comillas no rompe el listado", async () => {
   );
   expect(res.status).toBe(200);
   expect((await res.json()).total).toBe(0);
+});
+
+const formularioOk = {
+  nombre: "Ana Pérez García",
+  pasaporte: "pab123456",
+  nacionalidad: "España",
+  direccion: "Calle Mayor 1, 2º",
+  ciudad: "Barcelona",
+  paisResidencia: "España",
+  codigoPostal: "08001",
+  email: "Ana@Example.com",
+  nombreLlc: "Playa Digital LLC",
+  ein: "12-3456789",
+  direccionLlc: "500 4th St NW, Suite 102, Albuquerque, NM 87102",
+  fechaConstitucion: "2024-03-15",
+  actividad: "Online marketing consulting",
+  retiros: "1200,5",
+  aportaciones: "0",
+  saldo: "3400",
+  unicoSocio: true,
+  resideFuera: true,
+  datosCorrectos: true,
+  consentimiento: true,
+  pagina: "/formularios-llc",
+};
+
+test("formularios LLC guarda los datos, mantiene el cero del código postal y no los escribe en el log", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const info = vi.spyOn(console, "log").mockImplementation(() => {});
+  const res = await formularios(post("/api/formularios-llc", formularioOk));
+  expect(res.status).toBe(200);
+  const cuerpo = (await res.json()) as { ok: boolean; id: string };
+  expect(cuerpo.ok).toBe(true);
+  expect(cuerpo.id).toMatch(/^[0-9a-f-]{36}$/);
+  const filas = await estado.db!.query("select id, origen, servicio, email, datos from nec.leads");
+  expect(filas).toHaveLength(1);
+  expect(filas[0].id).toBe(cuerpo.id);
+  expect(filas[0].origen).toBe("contacto");
+  expect(filas[0].servicio).toBe("formularios-llc");
+  expect(filas[0].email).toBe("ana@example.com");
+  const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
+  expect(datos.codigoPostal).toBe("08001");
+  expect(datos.pasaporte).toBe("PAB123456");
+  expect(datos.ein).toBe("12-3456789");
+  expect(datos.retiros).toBe("1200.50");
+  expect(datos.saldo).toBe("3400.00");
+  expect(datos.ejercicio).toBe(2026);
+  const escrito = JSON.stringify([...log.mock.calls, ...info.mock.calls]);
+  expect(escrito).not.toContain("PAB123456");
+  expect(escrito).not.toContain("123456789");
+  log.mockRestore();
+  info.mockRestore();
+});
+
+test("formularios LLC valida EIN, nombre de la LLC, importes y las tres casillas", async () => {
+  const res = await formularios(
+    post("/api/formularios-llc", {
+      ...formularioOk,
+      ein: "123456789",
+      nombreLlc: "Playa Digital",
+      retiros: "mil",
+      codigoPostal: "SW1A 1AA",
+      unicoSocio: false,
+      resideFuera: undefined,
+      datosCorrectos: "true",
+    }),
+  );
+  expect(res.status).toBe(422);
+  const { errors } = (await res.json()) as { errors: Record<string, string> };
+  expect(Object.keys(errors).sort()).toEqual(
+    ["datosCorrectos", "ein", "nombreLlc", "resideFuera", "retiros", "unicoSocio"].sort(),
+  );
+  expect(JSON.stringify(errors)).not.toContain("PAB123456");
+  const filas = await estado.db!.query("select id from nec.leads");
+  expect(filas).toHaveLength(0);
+});
+
+test("encargo personalizado guarda nombre y email", async () => {
+  const res = await encargo(
+    post("/api/encargo", { nombre: "Luis", email: "luis@example.com", consentimiento: true, pagina: "/encargo-personalizado" }),
+  );
+  expect(res.status).toBe(200);
+  const filas = await estado.db!.query("select origen, servicio, nombre, email from nec.leads");
+  expect(filas).toEqual([{ origen: "contacto", servicio: "encargo", nombre: "Luis", email: "luis@example.com" }]);
+
+  const sinConsentimiento = await encargo(post("/api/encargo", { nombre: "Luis", email: "luis@example.com" }));
+  expect(sinConsentimiento.status).toBe(422);
+});
+
+test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
+  const res = await empezar(
+    post("/api/empezar", {
+      punto: "crear",
+      tipo: "llc-1",
+      estado: "New Mexico",
+      sinNombre: true,
+      nombre: "Eva",
+      email: "eva@example.com",
+      plan: "estandar",
+      consentimiento: true,
+    }),
+  );
+  expect(res.status).toBe(200);
+  const filas = await estado.db!.query("select datos from nec.leads");
+  const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
+  expect(datos.plan).toBe("estandar");
+  expect(datos.planEtiqueta).toBe("Plan Estándar (497$)");
 });

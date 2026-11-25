@@ -45,7 +45,9 @@ La sesión del panel dura 8 horas, va en una cookie httpOnly, `SameSite=Strict` 
 
 ## Consultas
 
-El formulario de `/contacto` y el asistente de `/empezar` validan en el servidor, piden consentimiento (versión publicada en `/legal`) y guardan la consulta. Un campo oculto descarta envíos automáticos. Hay un límite de 5 envíos por IP cada 10 minutos. «¡Recibido!» solo aparece si el guardado ha ido bien; si falla, se muestra el error y el enlace de WhatsApp.
+El formulario de `/contacto`, el asistente de `/empezar`, el encargo personalizado (`/encargo-personalizado`) y los datos de `/formularios-llc` validan en el servidor, piden consentimiento (versión publicada en `/legal`) y guardan la consulta. Un campo oculto descarta envíos automáticos. Hay un límite de 5 envíos por IP cada 10 minutos. «¡Recibido!» solo aparece si el guardado ha ido bien; si falla, se muestra el error y el enlace de WhatsApp.
+
+Todo se guarda en `nec.leads`, sin cambios de esquema: el encargo entra con `origen=contacto` y `servicio=encargo`; Formularios LLC, con `origen=contacto`, `servicio=formularios-llc` y los datos (pasaporte, EIN, importes…) en `datos`. Esos datos no se escriben nunca en los logs. Tras guardar, la pantalla de pago enlaza a Stripe con `client_reference_id` igual al id de la consulta, para cruzar el pago desde la ficha del panel.
 
 El panel está en `/panel`. Desde ahí se filtran las consultas, se cambia el estado, se escriben notas, se marcan como spam o como borradas, se exportan a CSV y se ven los contadores del día y de la semana (hora de Madrid). No hay enlace al panel en las páginas públicas. `robots.txt` lo deja fuera, igual que `/api/`.
 
@@ -54,9 +56,11 @@ El panel está en `/panel`. Desde ahí se filtran las consultas, se cambia el es
 | Ruta | Contenido |
 | --- | --- |
 | `/` | Portada: hero, el camino en 4 pasos, tipos de empresa, servicios, transparencia, atención humana, preguntas frecuentes |
-| `/empezar` | Asistente en 5 pasos (punto de partida, tipo de empresa, estado, nombre, contacto). Al final pide consentimiento y guarda la consulta. Admite `?paquete=arranque`, `en-regla` o `cierre` |
+| `/formularios-llc` | Formularios LLC del ejercicio 2026: requisitos, formulario de datos, casillas obligatorias y pantalla de pago (169$, Stripe) |
+| `/encargo-personalizado` | Formulario corto (nombre y email) del encargo personalizado |
+| `/empezar` | Asistente en 5 pasos (punto de partida, tipo de empresa, estado, nombre, contacto). Al final pide consentimiento y guarda la consulta. Admite `?paquete=arranque`, `en-regla` o `cierre`, y `?plan=basico` o `estandar` (se guarda en la consulta) |
 | `/como-funciona-una-llc` | Guía: qué es una LLC, elegir estado, documentos clave, obligaciones anuales (1120 + 5472) y cierre |
-| `/servicios` | Paquetes de LLC (sin precio publicado), diferencia entre LLC de un socio y LLC con varios socios, apertura de cuenta como extra, presentación anual y servicios digitales con precios |
+| `/servicios` | Planes de constitución (Básico 397$, Estándar 497$, encargo personalizado), diferencia entre LLC de un socio y LLC con varios socios, apertura de cuenta como extra, presentación anual y servicios digitales con precios |
 | `/contacto` | WhatsApp (España y EE. UU.), dirección en Albuquerque y formulario (admite `?servicio=en-regla`, `arranque`, `cierre`, `corporacion`…) |
 | `/legal` | Política de privacidad y la garantía de devolución |
 | `/panel` | Panel privado de consultas. No está enlazado desde la web pública ni se indexa |
@@ -81,7 +85,7 @@ información orientativa y se presentan como tal en la web.
 
 No hay etiquetas de «pendiente», «próximamente» ni horario de atención, y no hay bloque de reseñas.
 
-- **Precios** de los paquetes de LLC y de la apertura de cuenta: no se publican. El botón lleva al asistente o al formulario.
+- **Precios**: se publican los del Plan Básico (397$), el Plan Estándar (497$) y Formularios LLC (169$). La apertura de cuenta no tiene precio publicado. Los planes todavía no tienen enlace de pago: el botón lleva al asistente.
 - **Asistente `/empezar`**: cinco preguntas y, en la última, el consentimiento. El teléfono es opcional. Las respuestas se guardan al ver el siguiente paso.
 - **Formulario de contacto**: `POST /api/contacto` valida y guarda. El formulario pide el email de quien escribe, para poder responderle.
 

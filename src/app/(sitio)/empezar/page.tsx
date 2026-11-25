@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Eyebrow } from "@/components/brand/cta";
 import { FormationWizard, type Punto } from "@/components/wizard/formation-wizard";
+import { PLANES_ASISTENTE, type PlanAsistente } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Empieza aquí",
@@ -17,10 +18,12 @@ const desdePaquete: Record<string, Punto> = {
 export default async function EmpezarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paquete?: string }>;
+  searchParams: Promise<{ paquete?: string; plan?: string }>;
 }) {
-  const { paquete } = await searchParams;
+  const { paquete, plan: planParam } = await searchParams;
   const puntoInicial = typeof paquete === "string" ? desdePaquete[paquete] : undefined;
+  const plan =
+    typeof planParam === "string" && planParam in PLANES_ASISTENTE ? (planParam as PlanAsistente) : undefined;
 
   return (
     <section className="relative overflow-hidden pb-24 md:pb-32">
@@ -41,7 +44,7 @@ export default async function EmpezarPage({
           </p>
         </div>
         <div className="mt-12">
-          <FormationWizard puntoInicial={puntoInicial} />
+          <FormationWizard puntoInicial={plan ? "crear" : puntoInicial} plan={plan} />
         </div>
       </div>
     </section>

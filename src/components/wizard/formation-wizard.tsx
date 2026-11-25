@@ -10,7 +10,15 @@ import { Honeypot } from "@/components/honeypot";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { leerAtribucion } from "@/lib/atribucion";
-import { checklistPresentacion, contacto, estados, estadosDestacados, paquetes } from "@/lib/site";
+import {
+  checklistPresentacion,
+  contacto,
+  estados,
+  estadosDestacados,
+  paquetes,
+  PLANES_ASISTENTE,
+  type PlanAsistente,
+} from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 export type Punto = "crear" | "anual" | "cerrar";
@@ -81,7 +89,7 @@ const otrosEstados = estados.filter((e) => !estadosDestacados.includes(e)).sort(
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
+export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; plan?: PlanAsistente }) {
   const [paso, setPaso] = useState(0);
   const [maxPaso, setMaxPaso] = useState(0);
   const [r, setR] = useState<Respuestas>({ ...vacio, punto: puntoInicial ?? null });
@@ -191,6 +199,7 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
           nombre: r.nombre,
           email: r.email,
           telefono: r.telefono,
+          plan: r.punto === "crear" ? plan : undefined,
           consentimiento: true,
           nec_hp: String(new FormData(e.currentTarget).get("nec_hp") ?? ""),
           ...leerAtribucion(),
@@ -269,6 +278,11 @@ export function FormationWizard({ puntoInicial }: { puntoInicial?: Punto }) {
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
       <aside className="lg:col-span-4">
         <div className="lg:sticky lg:top-28">
+          {plan && r.punto === "crear" && (
+            <p className="mb-5 rounded-2xl bg-chancla/10 px-4 py-3 text-sm text-tinta">
+              Plan elegido: <strong>{PLANES_ASISTENTE[plan]}</strong>
+            </p>
+          )}
           <StepIndicator paso={paso} maxPaso={maxPaso} onIr={saltarA} />
           <div className="mt-6 hidden items-start gap-3 rounded-3xl border border-dashed border-tinta/20 p-5 text-sm text-tinta/70 lg:flex">
             <Lock className="mt-0.5 size-4 shrink-0 text-chancla-2" aria-hidden="true" />
