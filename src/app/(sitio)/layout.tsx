@@ -2,8 +2,11 @@ import { Suspense } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { GuardarUtm } from "@/components/guardar-utm";
+import { navegacion } from "@/lib/site";
+import { formulariosVisibles } from "@/lib/visibilidad";
 
-export default function SitioLayout({ children }: { children: React.ReactNode }) {
+export default async function SitioLayout({ children }: { children: React.ReactNode }) {
+  const nav = navegacion(await formulariosVisibles());
   return (
     <>
       <a
@@ -12,11 +15,11 @@ export default function SitioLayout({ children }: { children: React.ReactNode })
       >
         Saltar al contenido
       </a>
-      <SiteHeader />
+      <SiteHeader nav={nav} />
       <main id="contenido" className="flex-1">
         {children}
       </main>
-      <SiteFooter />
+      <SiteFooter nav={nav} />
       <Suspense fallback={null}>
         <GuardarUtm />
       </Suspense>

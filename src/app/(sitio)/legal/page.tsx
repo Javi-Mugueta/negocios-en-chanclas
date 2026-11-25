@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
+/** Los datos legales pendientes solo se marcan fuera de producción. */
+const MOSTRAR_PENDIENTES = process.env.NODE_ENV !== "production";
+
 export default function LegalPage() {
   return (
     <section className="mx-auto max-w-3xl px-5 pt-14 pb-24 sm:px-8 md:pt-20">
@@ -23,23 +26,25 @@ export default function LegalPage() {
         <section id="privacidad" className="space-y-4">
           <h2 className="text-2xl font-bold text-tinta">Política de privacidad</h2>
           <p>
-            Negocios en Chanclas trata los datos que envías desde el formulario de contacto y desde
-            el asistente de «Empieza aquí». El responsable del tratamiento es la persona o sociedad
-            que opera la marca. Estos tres datos todavía hay que completarlos:
+            Negocios en Chanclas trata los datos que envías desde el formulario de contacto, desde
+            el asistente de «Empieza aquí» y desde los formularios de sus servicios. El responsable
+            del tratamiento es la persona o sociedad que opera la marca.
           </p>
-          <ul className="space-y-2 rounded-3xl border border-chancla/30 bg-chancla/10 p-5 text-base text-tinta">
-            <li>
-              <strong>TODO (Javier):</strong> razón social o nombre legal del responsable.
-            </li>
-            <li>
-              <strong>TODO (Javier):</strong> NIF o CIF.
-            </li>
-            <li>
-              <strong>TODO (Javier):</strong> domicilio a efectos legales.
-            </li>
-          </ul>
+          {MOSTRAR_PENDIENTES && (
+            <ul className="space-y-2 rounded-3xl border border-chancla/30 bg-chancla/10 p-5 text-base text-tinta">
+              <li>
+                <strong>TODO (Javier):</strong> razón social o nombre legal del responsable.
+              </li>
+              <li>
+                <strong>TODO (Javier):</strong> NIF o CIF.
+              </li>
+              <li>
+                <strong>TODO (Javier):</strong> domicilio a efectos legales.
+              </li>
+            </ul>
+          )}
           <p>
-            Mientras tanto, puedes escribirnos por el{" "}
+            Puedes escribirnos por el{" "}
             <Link href="/contacto" className="font-semibold text-tinta underline underline-offset-4">
               formulario de contacto
             </Link>
@@ -54,11 +59,15 @@ export default function LegalPage() {
             te interesa y tu mensaje. En el asistente, las respuestas: punto de partida, tipo de
             LLC, estado, nombre de la empresa y tus datos de contacto. En el formulario de
             Formularios LLC, además, los datos que necesitamos para preparar los formularios de tu
-            LLC: número de pasaporte, nacionalidad, dirección de residencia, nombre, EIN, dirección,
-            fecha de constitución y actividad de la LLC, los importes del ejercicio (dinero sacado de
-            la LLC, dinero aportado y saldo a 31 de diciembre) y las confirmaciones que marcas. El
-            pago de ese servicio se hace en Stripe, fuera de esta web: no vemos ni guardamos los datos
-            de tu tarjeta. También guardamos la página
+            LLC: número de pasaporte, nacionalidad, dirección de residencia, nombre, estado de
+            constitución, EIN, dirección, fecha de constitución y actividad de la LLC, los importes del
+            ejercicio (dinero sacado de la LLC, dinero aportado y saldo a 31 de diciembre) y las
+            confirmaciones que marcas. En el formulario de Cierre de LLC, tu teléfono con WhatsApp,
+            tu país de residencia, el nombre, estado de constitución, EIN, fecha de constitución y
+            número de socios de la LLC, su situación (formularios de años anteriores, registered
+            agent e informe anual), las cuentas que tiene abiertas, cuándo quieres cerrarla, lo que
+            quieras contarnos y las confirmaciones que marcas. El pago de esos servicios se hace en
+            Stripe, fuera de esta web: no vemos ni guardamos los datos de tu tarjeta. También guardamos la página
             desde la que escribiste, los parámetros de campaña (UTM) si venían en el enlace, un
             identificador calculado a partir de tu IP —no la IP en claro— y el identificador de tu
             navegador.
@@ -91,10 +100,14 @@ export default function LegalPage() {
             portabilidad, y retirar el consentimiento cuando quieras. También puedes reclamar ante
             la autoridad de protección de datos que te corresponda.
           </p>
-          <p className="rounded-3xl border border-chancla/30 bg-chancla/10 p-5 text-base text-tinta">
-            <strong>TODO (Javier):</strong> indica el email al que una persona puede escribir para
-            ejercer estos derechos. Hasta que esté, usa el formulario de contacto o WhatsApp.
-          </p>
+          {MOSTRAR_PENDIENTES ? (
+            <p className="rounded-3xl border border-chancla/30 bg-chancla/10 p-5 text-base text-tinta">
+              <strong>TODO (Javier):</strong> indica el email al que una persona puede escribir para
+              ejercer estos derechos. Hasta que esté, usa el formulario de contacto o WhatsApp.
+            </p>
+          ) : (
+            <p>Para ejercerlos, usa el formulario de contacto o WhatsApp.</p>
+          )}
 
           <h3 className="pt-2 text-xl font-bold text-tinta">Seguridad</h3>
           <p>

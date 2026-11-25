@@ -9,6 +9,7 @@ export const PAGINAS_PUBLICAS = [
   "/como-funciona-una-llc",
   "/servicios",
   "/formularios-llc",
+  "/cierra-tu-llc",
   "/encargo-personalizado",
   "/contacto",
 ] as const;

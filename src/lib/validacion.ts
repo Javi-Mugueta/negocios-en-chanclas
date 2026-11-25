@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { estados, PLANES_ASISTENTE } from "@/lib/site";
+import { estados, estadosConstitucion, PLANES_ASISTENTE } from "@/lib/site";
 import {
   ETIQUETA_PUNTO,
   ETIQUETA_TIPO,
@@ -305,6 +305,11 @@ export function validarFormulariosLlc(
   const email = texto(raw.email).toLowerCase();
   if (!email || email.length > 200 || !emailValido(email)) errores.email = "Escribe un email válido.";
 
+  const estadoConstitucion = texto(raw.estadoConstitucion);
+  if (!estadosConstitucion.includes(estadoConstitucion)) {
+    errores.estadoConstitucion = "Elige el estado de constitución de la LLC.";
+  }
+
   const ein = texto(raw.ein);
   if (!EIN_RE.test(ein)) errores.ein = "El EIN tiene el formato XX-XXXXXXX (9 cifras).";
 
@@ -343,6 +348,7 @@ export function validarFormulariosLlc(
         paisResidencia: valores.paisResidencia,
         codigoPostal: valores.codigoPostal.toUpperCase(),
         nombreLlc: valores.nombreLlc,
+        estadoConstitucion,
         ein,
         direccionLlc: valores.direccionLlc,
         fechaConstitucion,
@@ -353,6 +359,116 @@ export function validarFormulariosLlc(
         unicoSocio: true,
         resideFuera: true,
         datosCorrectos: true,
+      },
+    },
+  };
+}
+
+/** Cierre de LLC: opciones de los desplegables. Solo «Wyoming»/«Nuevo México» y un socio llegan al pago. */
+export const CIERRE_ESTADOS = { wyoming: "Wyoming", "nuevo-mexico": "Nuevo México", otro: "Otro estado" } as const;
+export const CIERRE_SOCIOS = { uno: "Solo yo", varios: "Dos o más" } as const;
+export const CIERRE_SI_NO = { si: "Sí", no: "No", "no-se": "No lo sé" } as const;
+export const CIERRE_CUANDO = { "cuanto-antes": "Cuanto antes", "final-ano": "A final de año", otra: "Otra fecha" } as const;
+
+function opcion<T extends Record<string, string>>(mapa: T, value: unknown): keyof T | null {
+  const v = texto(value);
+  return Object.prototype.hasOwnProperty.call(mapa, v) ? (v as keyof T) : null;
+}
+
+/**
+ * Cierre de LLC (/cierra-tu-llc). Mismo tratamiento que Formularios LLC:
+ * los errores nunca repiten el valor recibido.
+ */
+export function validarCierreLlc(body: unknown): { errores: Record<string, string> } | { datos: DatosLead } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { errores: { formulario: "Revisa los datos e inténtalo de nuevo." } };
+  }
+  const raw = body as Record<string, unknown>;
+  const errores: Record<string, string> = {};
+  const limpio = (k: string) => texto(raw[k]).replace(/\s+/g, " ");
+
+  const nombre = limpio("nombre");
+  if (!nombre || nombre.length > 120) errores.nombre = "Escribe tu nombre y apellidos.";
+
+  const email = texto(raw.email).toLowerCase();
+  if (!email || email.length > 200 || !emailValido(email)) errores.email = "Escribe un email válido.";
+
+  let telefono: string | null = null;
+  if (raw.telefono == null || texto(raw.telefono) === "") errores.telefono = "Escribe tu teléfono con WhatsApp.";
+  else telefono = telefonoDe(raw.telefono, errores);
+
+  const paisResidencia = limpio("paisResidencia");
+  if (!paisResidencia || paisResidencia.length > 80) errores.paisResidencia = "Escribe tu país de residencia.";
+
+  const nombreLlc = limpio("nombreLlc");
+  if (!nombreLlc || nombreLlc.length > 120) errores.nombreLlc = "Escribe el nombre de la LLC.";
+  else if (!/\bLLC$/i.test(nombreLlc)) errores.nombreLlc = "El nombre tiene que terminar en «LLC».";
+
+  const estado = opcion(CIERRE_ESTADOS, raw.estadoConstitucion);
+  if (!estado) errores.estadoConstitucion = "Elige el estado de constitución.";
+  else if (estado === "otro") {
+    errores.estadoConstitucion =
+      "Por este precio cerramos LLC de Wyoming y Nuevo México. Si tu LLC es de otro estado, contacta con nosotros y te damos presupuesto.";
+  }
+
+  const ein = texto(raw.ein);
+  if (!EIN_RE.test(ein)) errores.ein = "El EIN tiene el formato XX-XXXXXXX (9 cifras).";
+
+  const fechaConstitucion = texto(raw.fechaConstitucion);
+  if (!fechaPasada(fechaConstitucion)) errores.fechaConstitucion = "Escribe una fecha de constitución válida.";
+
+  const socios = opcion(CIERRE_SOCIOS, raw.socios);
+  if (!socios) errores.socios = "Elige el número de socios.";
+  else if (socios === "varios") {
+    errores.socios = "Con dos o más socios no se contrata aquí: contacta con nosotros y te damos presupuesto.";
+  }
+
+  const formulariosPrevios = opcion(CIERRE_SI_NO, raw.formulariosPrevios);
+  if (!formulariosPrevios) errores.formulariosPrevios = "Elige una opción.";
+  const agenteAlDia = opcion(CIERRE_SI_NO, raw.agenteAlDia);
+  if (!agenteAlDia) errores.agenteAlDia = "Elige una opción.";
+
+  const cuentas = limpio("cuentas");
+  if (!cuentas || cuentas.length > 500) errores.cuentas = "Dinos qué cuentas tiene abiertas la LLC.";
+
+  const cuando = opcion(CIERRE_CUANDO, raw.cuando);
+  const cuandoOtra = limpio("cuandoOtra");
+  if (!cuando) errores.cuando = "Elige cuándo quieres cerrarla.";
+  else if (cuando === "otra" && (!cuandoOtra || cuandoOtra.length > 120)) errores.cuandoOtra = "Indica la fecha.";
+
+  const notas = texto(raw.notas);
+  if (notas.length > 4000) errores.notas = "El texto es demasiado largo.";
+
+  if (raw.datosCorrectos !== true) errores.datosCorrectos = "Debes confirmar que los datos son correctos y completos.";
+  if (raw.aceptaPrecio !== true) errores.aceptaPrecio = "Debes confirmar que entiendes el precio.";
+  if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
+  if (Object.keys(errores).length) return { errores };
+
+  const estadoOk = estado as keyof typeof CIERRE_ESTADOS;
+  const cuandoOk = cuando as keyof typeof CIERRE_CUANDO;
+  return {
+    datos: {
+      origen: "contacto",
+      servicio: "cierre-llc",
+      nombre,
+      email,
+      telefono,
+      mensaje: notas || null,
+      pagina: limpiarPagina(raw.pagina),
+      utm: limpiarUtm(raw.utm),
+      datos: {
+        paisResidencia,
+        nombreLlc,
+        estadoConstitucion: CIERRE_ESTADOS[estadoOk],
+        ein,
+        fechaConstitucion,
+        socios: CIERRE_SOCIOS.uno,
+        formulariosPrevios: CIERRE_SI_NO[formulariosPrevios as keyof typeof CIERRE_SI_NO],
+        agenteAlDia: CIERRE_SI_NO[agenteAlDia as keyof typeof CIERRE_SI_NO],
+        cuentas,
+        cuando: cuandoOk === "otra" ? `${CIERRE_CUANDO.otra}: ${cuandoOtra}` : CIERRE_CUANDO[cuandoOk],
+        datosCorrectos: true,
+        aceptaPrecio: true,
       },
     },
   };

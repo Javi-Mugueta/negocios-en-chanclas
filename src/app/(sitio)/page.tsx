@@ -8,11 +8,13 @@ import { Honesty } from "@/components/home/honesty";
 import { Support } from "@/components/home/support";
 import { FaqSection } from "@/components/home/faq-section";
 import { FinalCta } from "@/components/final-cta";
+import { formulariosVisibles } from "@/lib/visibilidad";
 
-export default function Home() {
+export default async function Home() {
+  const formularios = await formulariosVisibles();
   return (
     <>
-      <FormulariosBanner />
+      {formularios && <FormulariosBanner />}
       <Hero />
       <StatesMarquee />
       <Path />

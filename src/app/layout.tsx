@@ -28,7 +28,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Negocios en Chanclas – Gestión LLC´s",
+    default: "Negocios en Chanclas – Gestión de LLC",
     template: "%s · Negocios en Chanclas",
   },
   description:
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   applicationName: "Negocios en Chanclas",
   metadataBase: new URL("https://negociosenchanclas.com"),
   openGraph: {
-    title: "Negocios en Chanclas – Gestión LLC´s",
+    title: "Negocios en Chanclas – Gestión de LLC",
     description: "Tu empresa en EE. UU., sin quitarte las chanclas.",
     locale: "es_ES",
     type: "website",

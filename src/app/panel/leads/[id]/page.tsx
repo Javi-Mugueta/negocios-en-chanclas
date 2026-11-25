@@ -33,6 +33,7 @@ const CAMPOS_FORMULARIOS: [string, string][] = [
   ["paisResidencia", "País de residencia"],
   ["codigoPostal", "Código postal"],
   ["nombreLlc", "Nombre de la LLC"],
+  ["estadoConstitucion", "Estado de constitución"],
   ["ein", "EIN"],
   ["direccionLlc", "Dirección de la LLC en EE. UU."],
   ["fechaConstitucion", "Fecha de constitución"],
@@ -40,6 +41,25 @@ const CAMPOS_FORMULARIOS: [string, string][] = [
   ["retiros", "Sacado de la LLC para el socio (USD)"],
   ["aportaciones", "Transferido por el socio a la LLC (USD)"],
   ["saldo", "Saldo a 31 de diciembre (USD)"],
+];
+
+/** Cierre de LLC: orden y etiquetas de la ficha. */
+const CAMPOS_CIERRE: [string, string][] = [
+  ["paisResidencia", "País de residencia"],
+  ["nombreLlc", "Nombre de la LLC"],
+  ["estadoConstitucion", "Estado de constitución"],
+  ["ein", "EIN"],
+  ["fechaConstitucion", "Fecha de constitución"],
+  ["socios", "Número de socios"],
+  ["formulariosPrevios", "1120/5472 de años anteriores presentados"],
+  ["agenteAlDia", "Registered agent e informe anual al día"],
+  ["cuentas", "Cuentas abiertas"],
+  ["cuando", "Cuándo quiere cerrarla"],
+];
+
+const CHECKS_CIERRE: [string, string][] = [
+  ["datosCorrectos", "Los datos son correctos y completos y soy el responsable de su veracidad"],
+  ["aceptaPrecio", "Entiendo que el precio es 467 $ más las tasas del estado"],
 ];
 
 const CHECKS_FORMULARIOS: [string, string][] = [
@@ -73,8 +93,9 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
 
   const whatsapp = enlaceWhatsapp(lead.telefono);
   const esFormularios = lead.servicio === "formularios-llc";
+  const esCierre = lead.servicio === "cierre-llc";
   const respuestas = Object.entries(lead.datos).filter(([clave, valor]) => {
-    if (esFormularios) return false;
+    if (esFormularios || esCierre) return false;
     if (!(clave in CAMPOS)) return false;
     if (clave === "nombreLlc" && (valor == null || valor === "") && lead.datos.sinNombre === true) return false;
     return true;
@@ -157,6 +178,25 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
               </dl>
               <p className="mt-4 text-xs text-tinta/55">
                 El pago (169$) se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la
+                referencia {lead.id}.
+              </p>
+            </section>
+          )}
+
+          {esCierre && (
+            <section className="rounded-[1.5rem] border border-tinta/10 bg-card p-5">
+              <h2 className="text-lg font-bold">Cierre de LLC</h2>
+              <dl className="mt-4 space-y-3 text-sm">
+                {CAMPOS_CIERRE.map(([clave, etiqueta]) => {
+                  const valor = lead.datos[clave];
+                  return <Fila key={clave} k={etiqueta} v={valor == null || valor === "" ? "—" : String(valor)} />;
+                })}
+                {CHECKS_CIERRE.map(([clave, etiqueta]) => (
+                  <Fila key={clave} k={etiqueta} v={lead.datos[clave] === true ? "Marcado" : "No"} />
+                ))}
+              </dl>
+              <p className="mt-4 text-xs text-tinta/55">
+                El pago (467 $) se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la
                 referencia {lead.id}.
               </p>
             </section>

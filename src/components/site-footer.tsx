@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
-import { contacto, nav } from "@/lib/site";
+import { contacto, type ItemNav } from "@/lib/site";
 
-export function SiteFooter() {
+export function SiteFooter({ nav }: { nav: ItemNav[] }) {
   return (
     <footer className="relative overflow-hidden bg-tinta text-arena">
       <div className="mx-auto max-w-7xl px-5 pt-20 pb-10 sm:px-8">

@@ -7,6 +7,8 @@ import { cabecerasSeguridad, valorCsp } from "@/lib/seguridad";
 import { esLocal, quitarSslMode } from "@/lib/db";
 import { enlaceWhatsapp } from "@/lib/telefono";
 import { esHoneypot, validarContacto, validarEmpezar } from "@/lib/validacion";
+import { estadosConstitucion, navegacion, planes } from "@/lib/site";
+import { formulariosAbiertos } from "@/lib/visibilidad";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
 process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
@@ -124,5 +126,38 @@ describe("validación", () => {
   test("el señuelo solo salta si viene relleno", () => {
     expect(esHoneypot({ nec_hp: "" })).toBe(false);
     expect(esHoneypot({ nec_hp: "http://spam.test" })).toBe(true);
+  });
+});
+
+describe("visibilidad de Formularios LLC", () => {
+  test("se abre el 1 de enero de 2027 a las 00:00 de Madrid", () => {
+    delete process.env.NEC_FORMULARIOS_PREVIEW;
+    expect(formulariosAbiertos(new Date("2026-12-31T22:59:59.999Z"))).toBe(false);
+    expect(formulariosAbiertos(new Date("2026-12-31T23:00:00.000Z"))).toBe(true);
+    process.env.NEC_FORMULARIOS_PREVIEW = "1";
+    expect(formulariosAbiertos(new Date("2026-11-25T10:00:00.000Z"))).toBe(true);
+    delete process.env.NEC_FORMULARIOS_PREVIEW;
+  });
+
+  test("el menú solo enseña Formularios LLC cuando está abierta", () => {
+    expect(navegacion(false).map((i) => i.href)).not.toContain("/formularios-llc");
+    expect(navegacion(true).map((i) => i.href)).toContain("/formularios-llc");
+  });
+});
+
+describe("contenido", () => {
+  test("50 estados + D.C., con New Mexico, Wyoming y Delaware arriba", () => {
+    expect(estadosConstitucion).toHaveLength(51);
+    expect(new Set(estadosConstitucion).size).toBe(51);
+    expect(estadosConstitucion.slice(0, 3)).toEqual(["New Mexico", "Wyoming", "Delaware"]);
+  });
+
+  test("los planes Básico y Estándar pagan en Stripe e incluyen el Operating Agreement", () => {
+    for (const id of ["basico", "estandar"]) {
+      const plan = planes.find((p) => p.id === id)!;
+      expect(plan.href).toMatch(/^https:\/\/buy\.stripe\.com\//);
+      expect(plan.incluye).toContain("Operating Agreement (modelo estándar)");
+      expect(plan.aviso).toBe("*Renovación anual: 197 $/año a partir del segundo año.");
+    }
   });
 });

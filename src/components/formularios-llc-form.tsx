@@ -4,10 +4,16 @@ import { useRef, useState } from "react";
 import { ArrowRight, CreditCard, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Honeypot } from "@/components/honeypot";
+import { claseSelect } from "@/components/select-class";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { leerAtribucion } from "@/lib/atribucion";
-import { contacto, formulariosLlc } from "@/lib/site";
+import {
+  contacto,
+  estadosConstitucionDestacados,
+  estadosConstitucionResto,
+  formulariosLlc,
+} from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 type Estado = "idle" | "sending" | "pago" | "error";
@@ -62,6 +68,7 @@ export function FormulariosLlcForm() {
           codigoPostal: valor("codigoPostal"),
           email: valor("email"),
           nombreLlc: valor("nombreLlc"),
+          estadoConstitucion: valor("estadoConstitucion"),
           ein: valor("ein"),
           direccionLlc: valor("direccionLlc"),
           fechaConstitucion: valor("fechaConstitucion"),
@@ -181,6 +188,31 @@ export function FormulariosLlcForm() {
       <Grupo titulo="Tu LLC">
         <Field label="Nombre de la LLC" hint="Terminado en «LLC»." name="nombreLlc" error={errors.nombreLlc}>
           <Input id="nombreLlc" name="nombreLlc" maxLength={120} required placeholder="Mi Empresa LLC" className={field} aria-invalid={!!errors.nombreLlc} />
+        </Field>
+        <Field label="Estado de constitución de la LLC" name="estadoConstitucion" error={errors.estadoConstitucion}>
+          <select
+            id="estadoConstitucion"
+            name="estadoConstitucion"
+            required
+            defaultValue=""
+            className={cn(field, claseSelect)}
+            aria-invalid={!!errors.estadoConstitucion}
+          >
+            <option value="" disabled>
+              Elige el estado
+            </option>
+            {estadosConstitucionDestacados.map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+            <option disabled>──────────</option>
+            {estadosConstitucionResto.map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="EIN" hint="Formato XX-XXXXXXX." name="ein" error={errors.ein}>
           <Input

@@ -14,10 +14,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { contacto, nav } from "@/lib/site";
+import { contacto, type ItemNav } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-export function SiteHeader() {
+export function SiteHeader({ nav }: { nav: ItemNav[] }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
 

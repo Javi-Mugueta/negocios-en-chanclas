@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Eyebrow } from "@/components/brand/cta";
 import { FormationWizard, type Punto } from "@/components/wizard/formation-wizard";
 import { PLANES_ASISTENTE, type PlanAsistente } from "@/lib/site";
@@ -12,7 +13,6 @@ export const metadata: Metadata = {
 const desdePaquete: Record<string, Punto> = {
   arranque: "crear",
   "en-regla": "anual",
-  cierre: "cerrar",
 };
 
 export default async function EmpezarPage({
@@ -21,6 +21,8 @@ export default async function EmpezarPage({
   searchParams: Promise<{ paquete?: string; plan?: string }>;
 }) {
   const { paquete, plan: planParam } = await searchParams;
+  // El cierre es un servicio propio con su página.
+  if (paquete === "cierre") redirect("/cierra-tu-llc");
   const puntoInicial = typeof paquete === "string" ? desdePaquete[paquete] : undefined;
   const plan =
     typeof planParam === "string" && planParam in PLANES_ASISTENTE ? (planParam as PlanAsistente) : undefined;

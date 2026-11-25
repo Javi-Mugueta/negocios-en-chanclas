@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { Eyebrow } from "@/components/brand/cta";
 import { FormulariosLlcForm } from "@/components/formularios-llc-form";
 import { contacto, formulariosLlc } from "@/lib/site";
+import { formulariosVisibles } from "@/lib/visibilidad";
 
 export const metadata: Metadata = {
   title: "Formularios LLC",
@@ -12,13 +14,16 @@ export const metadata: Metadata = {
 
 const requisitos = [
   "Tu LLC tiene un solo socio: si tienes dos o más, requieres compliance adicional. Ponte en contacto con nosotros para que te informemos.",
-  "El socio no tiene ni residencia fiscal en USA.",
+  "El socio no es ciudadano estadounidense ni residente fiscal en EE. UU.",
   "La LLC no tiene oficina, empleados ni almacén físico en USA.",
   "La LLC está al día: has presentado formularios otros años si debías y tienes un agente registrador activo y contratado.",
   "No has recibido ninguna carta o multa de la IRS que haya que tener en cuenta.",
 ];
 
-export default function FormulariosLlcPage() {
+export default async function FormulariosLlcPage() {
+  // Antes del 1 de enero de 2027 (hora de Madrid) la página no existe: 404 y fuera del índice.
+  if (!(await formulariosVisibles())) notFound();
+
   return (
     <section className="relative overflow-hidden pb-24 md:pb-32">
       <div
@@ -81,8 +86,6 @@ export default function FormulariosLlcPage() {
         <div className="mt-10">
           <FormulariosLlcForm />
         </div>
-
-        <p className="mt-8 text-center text-sm text-tinta/65">{formulariosLlc.avisoPago}</p>
       </div>
     </section>
   );

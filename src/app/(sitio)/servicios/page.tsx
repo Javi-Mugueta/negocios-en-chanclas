@@ -1,37 +1,113 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ClipboardList, SearchCheck, Send } from "lucide-react";
 import { CtaLink, Eyebrow } from "@/components/brand/cta";
-import { FinalCta } from "@/components/final-cta";
-import { PlanCards } from "@/components/plan-cards";
 import { Reveal } from "@/components/reveal";
-import { checklistPresentacion, serviciosComplementarios, serviciosDigitales, tiposLlc } from "@/lib/site";
+import { AGENDA_15MIN } from "@/lib/site";
+import { formulariosVisibles } from "@/lib/visibilidad";
 
 export const metadata: Metadata = {
   title: "Servicios",
   description:
-    "Constitución, presentación anual de los formularios 1120 y 5472 y baja de tu LLC. Además, diseño web, tiendas online, SEO y mantenimiento para tu negocio.",
+    "Apertura de LLC y C-Corp, cierre de LLC, cambio de titularidad, Operating Agreement personalizado, operaciones societarias y formularios anuales 1120/5472.",
 };
 
-const flujo = [
-  {
-    icon: ClipboardList,
-    titulo: "Rellenas el formulario",
-    texto: "En español, con explicaciones en cada campo. Tus datos, los de tu LLC y los números del año.",
-  },
-  {
-    icon: SearchCheck,
-    titulo: "Lo revisamos contigo",
-    texto: "Comprobamos que no falte nada y que todo cuadre. Si algo no está claro, te llamamos.",
-  },
-  {
-    icon: Send,
-    titulo: "Lo presentamos nosotros",
-    texto: "Preparamos tu expediente y presentamos los formularios ante el IRS. Lo hacemos todo directamente.",
-  },
-];
+type Servicio = {
+  id: string;
+  titulo: string;
+  texto: React.ReactNode;
+  precio: string;
+  microcopy?: string;
+  cta: string;
+  href: string;
+};
 
-export default function ServiciosPage() {
+function servicios(formulariosAbiertos: boolean): Servicio[] {
+  return [
+    {
+      id: "apertura-llc",
+      titulo: "Apertura de LLC",
+      texto:
+        "Constituimos tu LLC en Estados Unidos con el plan que mejor encaje con tu negocio. Tienes todos los planes y lo que incluye cada uno en la página principal.",
+      precio: "Desde 397 $",
+      microcopy: "397 $ el primer año; renovación, 197 $/año (planes Básico y Estándar).",
+      cta: "Ver planes",
+      href: "/#paquetes",
+    },
+    {
+      id: "c-corp",
+      titulo: "Apertura de C-Corp",
+      texto:
+        "Si vas a levantar inversión, emitir acciones o tienes un proyecto que no encaja en una LLC, quizá lo que necesitas es una C-Corp. Es un servicio a medida: antes de darte precio, entendemos qué quieres construir.",
+      precio: "Presupuesto a medida",
+      cta: "Agenda una llamada gratuita de 15 min",
+      href: AGENDA_15MIN,
+    },
+    {
+      id: "cierre-llc",
+      titulo: "Cierre de LLC",
+      texto:
+        "¿Ya no usas tu LLC? Cerrarla bien evita que sigan corriendo cuotas anuales, agente registrado y obligaciones de un negocio que ya no tienes. Nos encargamos de todo: la disolución ante el estado y la última declaración ante el IRS (1120/5472 final).",
+      precio: "467 $ + tasas del estado",
+      microcopy: "Para LLC de Wyoming y Nuevo México. ¿Otro estado? Escríbenos y te damos presupuesto.",
+      cta: "Cierra tu LLC",
+      href: "/cierra-tu-llc",
+    },
+    {
+      id: "cambio-titularidad",
+      titulo: "Cambio de titularidad de LLC",
+      texto:
+        "Si vendes o traspasas tu LLC a otra persona, hay que documentar bien la transmisión y dejarla en orden ante el estado. Lo preparamos para que el nuevo dueño reciba una empresa limpia.",
+      precio: "567 $ + tasas del estado, si las hay",
+      microcopy: "Algunos estados cobran tasas por este trámite y otros no. Te lo confirmamos antes de empezar.",
+      cta: "Solicitar cambio de titularidad",
+      href: "/contacto?servicio=cambio-titularidad",
+    },
+    {
+      id: "operating-agreement",
+      titulo: "Operating Agreement personalizado",
+      texto: (
+        <>
+          <p>
+            El Operating Agreement es el contrato que dice cómo funciona tu LLC: quién decide, cómo se
+            reparte el dinero y qué pasa si alguien entra o sale. Una plantilla vale para empezar;
+            cuando hay socios, inversores o dinero en juego, conviene uno hecho para ti.
+          </p>
+          <p className="mt-4 font-semibold text-tinta">Incluye:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>Una llamada gratuita de 15 minutos para entender qué necesitas.</li>
+            <li>Una sesión de trabajo de 45 minutos para diseñarlo contigo.</li>
+            <li>La redacción del documento.</li>
+          </ul>
+        </>
+      ),
+      precio: "Desde 697 $",
+      microcopy: "El presupuesto final depende de la complejidad de tu caso. Te lo damos cerrado tras la llamada.",
+      cta: "Agenda tu llamada gratuita",
+      href: AGENDA_15MIN,
+    },
+    {
+      id: "operaciones-societarias",
+      titulo: "Operaciones societarias (M&A)",
+      texto:
+        "Aportar tu LLC a otra sociedad, dar entrada a un socio y pasar de una LLC de un solo miembro a una partnership, fusionar o reorganizar estructuras… Cada operación tiene consecuencias legales y fiscales distintas, así que la estudiamos caso a caso.",
+      precio: "Presupuesto a medida",
+      cta: "Cuéntanos tu operación",
+      href: "/contacto?servicio=operaciones-societarias",
+    },
+    {
+      id: "formularios-anuales",
+      titulo: "Formularios anuales 1120/5472",
+      texto:
+        "Si tu LLC es de un solo socio y no resides en EE. UU., cada año tienes que presentar al IRS el formulario 5472 junto a un 1120 pro forma. Nos pasas los datos y los movimientos del año, los preparamos y los presentamos por ti.",
+      precio: "169 $",
+      cta: "Presentar mis formularios",
+      // /formularios-llc no se abre hasta el 1 de enero de 2027: mientras tanto, al contacto.
+      href: formulariosAbiertos ? "/formularios-llc" : "/contacto?servicio=en-regla",
+    },
+  ];
+}
+
+export default async function ServiciosPage() {
+  const tarjetas = servicios(await formulariosVisibles());
   return (
     <>
       <section className="relative overflow-hidden">
@@ -42,189 +118,62 @@ export default function ServiciosPage() {
         <div className="relative mx-auto max-w-7xl px-5 pt-14 pb-8 sm:px-8 md:pt-20">
           <Eyebrow>Servicios</Eyebrow>
           <h1 className="mt-5 max-w-4xl text-5xl leading-[0.95] font-extrabold md:text-7xl">
-            Lo que hacemos por tu LLC,{" "}
-            <span className="font-serif font-normal text-chancla italic">y cómo lo hacemos.</span>
+            Servicios para tu LLC
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-tinta/70 md:text-xl">
-            Servicios claros para cada etapa de tu empresa en EE. UU. Sin cuotas sorpresa, sin
-            jerga y con una persona al otro lado.
+            Abrirla es solo el principio. Te acompañamos en todo lo que pasa después: cerrarla,
+            venderla, ponerla por escrito o reorganizarla.
           </p>
-        </div>
-      </section>
-
-      <section className="py-16 md:py-20">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <PlanCards />
-        </div>
-      </section>
-
-      <section className="pb-20 md:pb-28">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="max-w-3xl">
-            <Eyebrow>LLC</Eyebrow>
-            <h2 className="mt-4 text-4xl leading-[1.02] font-bold md:text-6xl">
-              De un socio,{" "}
-              <span className="font-serif font-normal italic">o de varios.</span>
-            </h2>
-            <p className="mt-5 text-lg text-tinta/70">
-              No es lo mismo una LLC single member que una LLC con varios socios. El papeleo anual
-              cambia, y lo vemos antes de empezar.
-            </p>
-          </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-2">
-            {tiposLlc.map((t) => (
-              <article key={t.id} className="flex flex-col rounded-[2rem] border border-tinta/10 bg-card p-8">
-                <p className="font-mono text-xs tracking-[0.16em] text-chancla-2 uppercase">{t.etiqueta}</p>
-                <h3 className="mt-3 text-3xl font-bold">{t.nombre}</h3>
-                <p className="mt-4 flex-1 leading-relaxed text-tinta/70">{t.texto}</p>
-                <CtaLink href={t.href} variant="dark" className="mt-8 self-start">
-                  {t.cta}
-                </CtaLink>
-              </article>
-            ))}
-          </div>
-          <AperturaBancaria />
-          <p className="mt-8 text-tinta/70">
-            Las corporaciones (C-Corp) las hacemos <strong className="text-tinta">a medida</strong>:
-            cada una requiere hablar contigo 1 a 1 y una propuesta personalizada.{" "}
-            <Link
-              href="/contacto?servicio=corporacion"
-              className="font-semibold text-chancla-2 underline decoration-chancla/40 underline-offset-4"
+          <p className="mt-5">
+            <a
+              href="#no-sabes"
+              className="font-semibold text-chancla-2 underline decoration-chancla/40 underline-offset-4 transition hover:decoration-chancla"
             >
-              Cuéntanos tu caso
-            </Link>
-            .
+              ¿No sabes cuál necesitas?
+            </a>
           </p>
         </div>
       </section>
 
-      <section id="presentacion" className="bg-tinta py-24 text-arena md:py-32">
+      <section className="py-12 md:py-16">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-12 md:items-end">
-            <div className="md:col-span-7">
-              <Eyebrow className="text-sol">Presentación 1120 + 5472</Eyebrow>
-              <h2 className="mt-4 text-4xl leading-[1.02] font-bold md:text-6xl">
-                Tu cita con el IRS,{" "}
-                <span className="font-serif font-normal text-chancla italic">en tres pasos.</span>
-              </h2>
-            </div>
-            <p className="text-lg text-arena/70 md:col-span-5">
-              Lo hacemos todo directamente: recogemos tus datos, los revisamos contigo y presentamos
-              los formularios.
-            </p>
-          </div>
-
-          <ol className="mt-14 grid gap-5 md:grid-cols-3">
-            {flujo.map(({ icon: Icon, titulo, texto }, i) => (
-              <Reveal as="li" key={titulo} delay={i * 110}>
-                <div className="h-full rounded-[2rem] bg-tinta-2/70 p-8 ring-1 ring-arena/10">
-                  <div className="flex items-center justify-between">
-                    <span className="grid size-12 place-items-center rounded-2xl bg-chancla text-white">
-                      <Icon className="size-5" aria-hidden="true" />
-                    </span>
-                    <span className="font-display text-5xl font-extrabold text-arena/10">
-                      {i + 1}
-                    </span>
+          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {tarjetas.map((s, i) => (
+              <Reveal as="li" key={s.id} delay={(i % 3) * 90} className="h-full">
+                <article
+                  id={s.id}
+                  className="flex h-full scroll-mt-28 flex-col rounded-[2rem] border border-tinta/10 bg-card p-7 transition-all duration-500 hover:-translate-y-1 hover:border-chancla/40"
+                >
+                  <h3 className="text-2xl font-bold">{s.titulo}</h3>
+                  <div className="mt-3 flex-1 leading-relaxed text-tinta/70">{s.texto}</div>
+                  <div className="mt-6 border-t border-tinta/10 pt-5">
+                    <p className="font-display text-2xl font-extrabold text-tinta">{s.precio}</p>
+                    {s.microcopy && <p className="mt-2 text-sm text-tinta/60">{s.microcopy}</p>}
                   </div>
-                  <h3 className="mt-6 text-2xl font-bold">{titulo}</h3>
-                  <p className="mt-3 text-arena/70">{texto}</p>
-                </div>
-              </Reveal>
-            ))}
-          </ol>
-
-          <div className="mt-16 rounded-[2rem] bg-arena p-8 text-tinta md:p-12">
-            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-              <h3 className="text-3xl font-bold">Ten esto a mano</h3>
-              <p className="text-tinta/60">Si no hubo actividad, escribe «0»: ningún campo puede quedar vacío.</p>
-            </div>
-            <div className="mt-8 grid gap-8 md:grid-cols-3">
-              {checklistPresentacion.map((g) => (
-                <div key={g.grupo}>
-                  <p className="font-mono text-xs tracking-[0.16em] text-chancla-2 uppercase">{g.grupo}</p>
-                  <ul className="mt-4 space-y-2.5">
-                    {g.items.map((it) => (
-                      <li key={it} className="flex gap-3 text-tinta/80">
-                        <span aria-hidden="true" className="mt-1 grid size-4 shrink-0 place-items-center rounded border border-tinta/25" />
-                        {it}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <div className="mt-10">
-              <CtaLink href="/formularios-llc">Preparar mi presentación</CtaLink>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="digital" className="py-24 md:py-32">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-12 md:items-end">
-            <div className="md:col-span-7">
-              <Eyebrow>Y para tu negocio online</Eyebrow>
-              <h2 className="mt-4 text-4xl leading-[1.02] font-bold md:text-6xl">
-                Web, tienda y SEO.{" "}
-                <span className="font-serif font-normal italic">Con la misma calma.</span>
-              </h2>
-            </div>
-            <p className="text-lg text-tinta/70 md:col-span-5">
-              Tu LLC necesita escaparate. Diseñamos, mantenemos y posicionamos webs y tiendas
-              online, con formación incluida para que tú también puedas tocarlas.
-            </p>
-          </div>
-
-          <ul className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {serviciosDigitales.map((s, i) => (
-              <Reveal as="li" key={s.nombre} delay={(i % 3) * 90}>
-                <div className="group flex h-full flex-col rounded-[2rem] border border-tinta/10 bg-card p-7 transition-all duration-500 hover:-translate-y-1 hover:border-chancla/40">
-                  <h3 className="text-xl font-bold">{s.nombre}</h3>
-                  <p className="mt-3 flex-1 text-tinta/70">{s.descripcion}</p>
-                  <div className="mt-6 flex items-baseline gap-3 border-t border-tinta/10 pt-5">
-                    <span className="font-display text-3xl font-extrabold text-tinta">{s.precio}</span>
-                    {"precioAnterior" in s && s.precioAnterior && (
-                      <span className="text-tinta/45 line-through">{s.precioAnterior}</span>
-                    )}
-                  </div>
-                </div>
+                  <CtaLink href={s.href} className="mt-6 w-full">
+                    {s.cta}
+                  </CtaLink>
+                </article>
               </Reveal>
             ))}
           </ul>
-
-          <div className="mt-8 grid gap-4 rounded-[2rem] bg-arena-2 p-7 text-tinta/75 md:grid-cols-2 md:p-9">
-            <p>
-              <strong className="text-tinta">Garantía de 30 días.</strong> En diseño web y tiendas
-              online tienes 30 días para solicitar el reembolso si el proyecto final no responde a
-              tus necesidades.
-            </p>
-            <p>
-              <strong className="text-tinta">Pago en dos partes.</strong> 50 % al empezar y 50 % al
-              terminar. Tras la compra, un técnico te contacta para fijar día y hora.
-            </p>
-          </div>
         </div>
       </section>
 
-      <FinalCta titulo="¿Hablamos de lo tuyo?" subtitulo="Sin compromiso y sin prisas." />
+      <section id="no-sabes" className="scroll-mt-28 pt-12 pb-24 md:pb-32">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="rounded-[2rem] bg-tinta p-8 text-arena md:p-14">
+            <h2 className="text-4xl leading-[1.02] font-bold md:text-5xl">¿No sabes cuál necesitas?</h2>
+            <p className="mt-5 max-w-2xl text-lg text-arena/75">
+              Cuéntanos tu caso en una llamada de 15 minutos, sin coste. Te decimos qué servicio encaja
+              y, si no necesitas ninguno, también te lo diremos.
+            </p>
+            <CtaLink href={AGENDA_15MIN} className="mt-8">
+              Agenda una llamada gratuita
+            </CtaLink>
+          </div>
+        </div>
+      </section>
     </>
-  );
-}
-
-function AperturaBancaria() {
-  const banco = serviciosComplementarios.find((s) => s.id === "banco");
-  if (!banco) return null;
-  return (
-    <article className="mt-5 flex flex-col gap-6 rounded-[2rem] bg-arena-2 p-8 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p className="font-mono text-xs tracking-[0.16em] text-chancla-2 uppercase">Extra</p>
-        <h3 className="mt-2 text-2xl font-bold">{banco.nombre}</h3>
-        <p className="mt-2 max-w-2xl text-tinta/70">{banco.texto}</p>
-      </div>
-      <CtaLink href={banco.href} variant="dark" className="shrink-0">
-        {banco.cta}
-      </CtaLink>
-    </article>
   );
 }

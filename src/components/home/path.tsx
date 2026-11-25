@@ -37,11 +37,16 @@ export function Path() {
               Cuatro pasos. <span className="font-serif font-normal italic">Cero agobios.</span>
             </h2>
           </div>
-          <p className="text-lg text-tinta/70 md:col-span-5">
-            Tu empresa en Estados Unidos abierta en menos de un mes, con una cuenta bancaria
-            asegurada y abierta por un profesional. Acompañamiento real durante toda la vida útil de
-            tu negocio.
-          </p>
+          <div className="md:col-span-5">
+            <p className="text-lg text-tinta/70">
+              Tu empresa en Estados Unidos abierta en menos de un mes, con una cuenta bancaria
+              asegurada* y abierta por un profesional. Acompañamiento real durante toda la vida útil
+              de tu negocio.
+            </p>
+            <p className="mt-3 text-xs text-tinta/55">
+              *Servicio adicional, no incluido en ningún plan. Se contrata aparte.
+            </p>
+          </div>
         </div>
 
         <ol className="relative mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-4">

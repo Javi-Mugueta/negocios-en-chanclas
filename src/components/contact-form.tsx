@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { leerAtribucion } from "@/lib/atribucion";
+import { claseSelect } from "@/components/select-class";
 import { contacto } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,9 @@ const opciones = [
   { value: "arranque", label: "Constituir una LLC" },
   { value: "cierre", label: "Cerrar mi LLC" },
   { value: "corporacion", label: "Corporación (C-Corp) a medida" },
+  { value: "cambio-titularidad", label: "Cambio de titularidad" },
+  { value: "operating-agreement", label: "Operating Agreement personalizado" },
+  { value: "operaciones-societarias", label: "Operaciones societarias (M&A)" },
   { value: "web", label: "Web, tienda online o SEO" },
   { value: "otra", label: "Otra cosa" },
 ];
@@ -116,7 +120,7 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
             id="servicio"
             name="servicio"
             defaultValue={inicial}
-            className={cn(field, "w-full appearance-none border bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22 fill=%22%2313293d%22><path d=%22M5.5 7.5 10 12l4.5-4.5%22 stroke=%22%2313293d%22 stroke-width=%221.6%22 fill=%22none%22 stroke-linecap=%22round%22/></svg>')] bg-[length:1.1rem] bg-[right_1rem_center] bg-no-repeat pr-10 outline-none focus-visible:ring-3")}
+            className={cn(field, claseSelect)}
           >
             {opciones.map((o) => (
               <option key={o.value} value={o.value}>
