@@ -20,6 +20,7 @@ const { POST: contacto } = await import("@/app/api/contacto/route");
 const { POST: empezar } = await import("@/app/api/empezar/route");
 const { POST: encargo } = await import("@/app/api/encargo/route");
 const { POST: formularios } = await import("@/app/api/formularios-llc/route");
+const { POST: cierre } = await import("@/app/api/cierra-tu-llc/route");
 const { POST: login } = await import("@/app/api/panel/login/route");
 const { POST: logout } = await import("@/app/api/panel/logout/route");
 const { GET: listar } = await import("@/app/api/panel/leads/route");
@@ -257,6 +258,7 @@ const formularioOk = {
   codigoPostal: "08001",
   email: "Ana@Example.com",
   nombreLlc: "Playa Digital LLC",
+  estadoConstitucion: "Wyoming",
   ein: "12-3456789",
   direccionLlc: "500 4th St NW, Suite 102, Albuquerque, NM 87102",
   fechaConstitucion: "2024-03-15",
@@ -271,7 +273,20 @@ const formularioOk = {
   pagina: "/formularios-llc",
 };
 
+test("formularios LLC no admite envíos antes del 1 de enero de 2027 (hora de Madrid)", async () => {
+  delete process.env.NEC_FORMULARIOS_PREVIEW;
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-12-31T22:59:59.000Z"));
+  const antes = await formularios(post("/api/formularios-llc", formularioOk));
+  expect(antes.status).toBe(404);
+  vi.setSystemTime(new Date("2026-12-31T23:00:00.000Z"));
+  const despues = await formularios(post("/api/formularios-llc", formularioOk));
+  expect(despues.status).toBe(200);
+  vi.useRealTimers();
+});
+
 test("formularios LLC guarda los datos, mantiene el cero del código postal y no los escribe en el log", async () => {
+  process.env.NEC_FORMULARIOS_PREVIEW = "1";
   const log = vi.spyOn(console, "error").mockImplementation(() => {});
   const info = vi.spyOn(console, "log").mockImplementation(() => {});
   const res = await formularios(post("/api/formularios-llc", formularioOk));
@@ -292,6 +307,7 @@ test("formularios LLC guarda los datos, mantiene el cero del código postal y no
   expect(datos.retiros).toBe("1200.50");
   expect(datos.saldo).toBe("3400.00");
   expect(datos.ejercicio).toBe(2026);
+  expect(datos.estadoConstitucion).toBe("Wyoming");
   const escrito = JSON.stringify([...log.mock.calls, ...info.mock.calls]);
   expect(escrito).not.toContain("PAB123456");
   expect(escrito).not.toContain("123456789");
@@ -299,10 +315,12 @@ test("formularios LLC guarda los datos, mantiene el cero del código postal y no
   info.mockRestore();
 });
 
-test("formularios LLC valida EIN, nombre de la LLC, importes y las tres casillas", async () => {
+test("formularios LLC valida EIN, nombre de la LLC, estado, importes y las tres casillas", async () => {
+  process.env.NEC_FORMULARIOS_PREVIEW = "1";
   const res = await formularios(
     post("/api/formularios-llc", {
       ...formularioOk,
+      estadoConstitucion: "Narnia",
       ein: "123456789",
       nombreLlc: "Playa Digital",
       retiros: "mil",
@@ -315,11 +333,71 @@ test("formularios LLC valida EIN, nombre de la LLC, importes y las tres casillas
   expect(res.status).toBe(422);
   const { errors } = (await res.json()) as { errors: Record<string, string> };
   expect(Object.keys(errors).sort()).toEqual(
-    ["datosCorrectos", "ein", "nombreLlc", "resideFuera", "retiros", "unicoSocio"].sort(),
+    ["datosCorrectos", "ein", "estadoConstitucion", "nombreLlc", "resideFuera", "retiros", "unicoSocio"].sort(),
   );
   expect(JSON.stringify(errors)).not.toContain("PAB123456");
   const filas = await estado.db!.query("select id from nec.leads");
   expect(filas).toHaveLength(0);
+});
+
+const cierreOk = {
+  nombre: "Ana Pérez García",
+  email: "Ana@Example.com",
+  telefono: "+34 659 30 81 19",
+  paisResidencia: "España",
+  nombreLlc: "Playa Digital LLC",
+  estadoConstitucion: "nuevo-mexico",
+  ein: "12-3456789",
+  fechaConstitucion: "2023-05-10",
+  socios: "uno",
+  formulariosPrevios: "si",
+  agenteAlDia: "no-se",
+  cuentas: "Mercury y Stripe",
+  cuando: "otra",
+  cuandoOtra: "Marzo de 2027",
+  notas: "Tengo una carta del IRS.",
+  datosCorrectos: true,
+  aceptaPrecio: true,
+  consentimiento: true,
+  pagina: "/cierra-tu-llc",
+};
+
+test("cierre de LLC guarda la consulta con servicio cierre-llc", async () => {
+  const res = await cierre(post("/api/cierra-tu-llc", cierreOk));
+  expect(res.status).toBe(200);
+  const cuerpo = (await res.json()) as { ok: boolean; id: string };
+  expect(cuerpo.id).toMatch(/^[0-9a-f-]{36}$/);
+  const filas = await estado.db!.query("select origen, servicio, email, telefono, mensaje, datos from nec.leads");
+  expect(filas).toHaveLength(1);
+  expect(filas[0].origen).toBe("contacto");
+  expect(filas[0].servicio).toBe("cierre-llc");
+  expect(filas[0].email).toBe("ana@example.com");
+  expect(filas[0].mensaje).toBe("Tengo una carta del IRS.");
+  const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
+  expect(datos.estadoConstitucion).toBe("Nuevo México");
+  expect(datos.socios).toBe("Solo yo");
+  expect(datos.agenteAlDia).toBe("No lo sé");
+  expect(datos.cuando).toBe("Otra fecha: Marzo de 2027");
+});
+
+test("cierre de LLC no admite otro estado, dos o más socios ni faltar las casillas", async () => {
+  const res = await cierre(
+    post("/api/cierra-tu-llc", {
+      ...cierreOk,
+      estadoConstitucion: "otro",
+      socios: "varios",
+      telefono: "",
+      aceptaPrecio: false,
+      cuando: "otra",
+      cuandoOtra: "",
+    }),
+  );
+  expect(res.status).toBe(422);
+  const { errors } = (await res.json()) as { errors: Record<string, string> };
+  expect(Object.keys(errors).sort()).toEqual(
+    ["aceptaPrecio", "cuandoOtra", "estadoConstitucion", "socios", "telefono"].sort(),
+  );
+  expect(await estado.db!.query("select id from nec.leads")).toHaveLength(0);
 });
 
 test("encargo personalizado guarda nombre y email", async () => {

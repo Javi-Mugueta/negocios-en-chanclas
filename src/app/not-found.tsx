@@ -2,11 +2,14 @@ import { CtaLink } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { navegacion } from "@/lib/site";
+import { formulariosVisibles } from "@/lib/visibilidad";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const nav = navegacion(await formulariosVisibles());
   return (
     <>
-    <SiteHeader />
+    <SiteHeader nav={nav} />
     <section className="mx-auto flex max-w-2xl flex-1 flex-col items-center px-5 py-28 text-center">
       <ChanclaMark className="size-24 animate-float [--r:-8deg]" />
       <p className="mt-8 font-mono text-sm tracking-[0.2em] text-chancla-2 uppercase">Error 404</p>
@@ -20,7 +23,7 @@ export default function NotFound() {
         Volver al inicio
       </CtaLink>
     </section>
-    <SiteFooter />
+    <SiteFooter nav={nav} />
     </>
   );
 }

@@ -10,7 +10,11 @@ export const SERVICIOS = [
   "formularios-llc",
   "encargo",
   "cierre",
+  "cierre-llc",
   "corporacion",
+  "cambio-titularidad",
+  "operating-agreement",
+  "operaciones-societarias",
   "web",
   "otra",
 ] as const;
@@ -36,7 +40,11 @@ export const ETIQUETA_SERVICIO: Record<string, string> = {
   "formularios-llc": "Formularios LLC 2026",
   encargo: "Encargo personalizado",
   cierre: "Cerrar la LLC",
+  "cierre-llc": "Cierre de LLC (467 $)",
   corporacion: "Corporación (C-Corp)",
+  "cambio-titularidad": "Cambio de titularidad",
+  "operating-agreement": "Operating Agreement personalizado",
+  "operaciones-societarias": "Operaciones societarias (M&A)",
   web: "Web, tienda o SEO",
   otra: "Otra consulta",
 };

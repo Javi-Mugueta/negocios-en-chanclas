@@ -1,5 +1,5 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { faqs } from "@/lib/site";
+import { faqs } from "@/lib/faqs";
 
 export function Faq() {
   return (
@@ -14,7 +14,7 @@ export function Faq() {
               {f.q}
             </span>
           </AccordionTrigger>
-          <AccordionContent className="pb-6 pl-9 text-base leading-relaxed text-tinta/70">
+          <AccordionContent keepMounted className="pb-6 pl-9 text-base leading-relaxed text-tinta/70">
             {f.a}
           </AccordionContent>
         </AccordionItem>

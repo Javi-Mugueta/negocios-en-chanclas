@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Copy, Lock, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
@@ -73,7 +74,7 @@ const puntos: { value: Punto; titulo: string; texto: string; paquete: string }[]
   {
     value: "cerrar",
     titulo: "Quiero cerrar mi LLC",
-    texto: "Toca la última presentación y despedirse con todo en orden.",
+    texto: "Nos encargamos de cerrarla bien, de principio a fin.",
     paquete: "cierre",
   },
 ];
@@ -99,6 +100,7 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
   const [errorEnvio, setErrorEnvio] = useState("");
   const [firmaGuardada, setFirmaGuardada] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const router = useRouter();
   const primerRender = useRef(true);
 
   useEffect(() => {
@@ -162,6 +164,11 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
       document.querySelector<HTMLElement>(`[data-campo="${primero}"]`)?.focus();
       return;
     }
+    if (paso === 0 && r.punto === "cerrar") {
+      // El cierre tiene su propia página (467 $ + tasas del estado).
+      router.push("/cierra-tu-llc");
+      return;
+    }
     if (paso < pasos.length - 1) {
       irA(paso + 1);
       return;
@@ -221,6 +228,10 @@ export function FormationWizard({ puntoInicial, plan }: { puntoInicial?: Punto; 
   }
 
   function saltarA(destino: number) {
+    if (destino > 0 && r.punto === "cerrar") {
+      router.push("/cierra-tu-llc");
+      return;
+    }
     if (destino > paso) {
       for (let i = 0; i < destino; i++) {
         const err = validar(i);
@@ -955,11 +966,6 @@ function Resultado({
               datos, los revisamos contigo y presentamos los formularios.
             </p>
           )}
-          {r.punto === "cerrar" && (
-            <p className="mt-3 text-sm text-arena/70">
-              Al preparar la presentación, marca la casilla «Última presentación».
-            </p>
-          )}
           {r.tipo === "llc-2" && r.punto !== "crear" && (
             <p className="mt-3 text-sm text-arena/70">
               Con varios socios las obligaciones pueden cambiar: lo revisamos contigo antes de empezar.
@@ -971,7 +977,7 @@ function Resultado({
               {r.punto === "crear" ? "Hablar con una persona" : "Preparar con nosotros"}
             </CtaLink>
             <CtaLink
-              href={r.punto === "crear" ? "/como-funciona-una-llc" : "/servicios#presentacion"}
+              href={r.punto === "crear" ? "/como-funciona-una-llc" : "/servicios#formularios-anuales"}
               variant="light"
               arrow={false}
             >

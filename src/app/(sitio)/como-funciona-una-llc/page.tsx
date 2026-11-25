@@ -227,16 +227,26 @@ export default function ComoFuncionaPage() {
 
           <Section id="cerrar" n="06" titulo="Cerrar una LLC">
             <p>
-              Si decides cerrar, no basta con dejar de usarla. Hay que presentar una última
-              declaración ante el IRS y, según el estado, tramitar la disolución.
+              Si ya no usas tu LLC, dejar de pagar no la cierra: siguen corriendo tasas y
+              obligaciones con el estado y con el IRS. Hay que hacerlo en orden:
             </p>
+            <ol className="list-decimal space-y-2 pl-6">
+              <li>
+                Disolver la LLC en su estado, con los <em>Articles of Dissolution</em> o el{" "}
+                <em>Certificate of Cancellation</em>, después de pagar lo pendiente.
+              </li>
+              <li>Presentar los últimos 1120 y 5472, marcados como finales.</li>
+              <li>Pedir al IRS que cierre el EIN.</li>
+              <li>Cerrar la cuenta bancaria y dar de baja el registered agent.</li>
+            </ol>
             <p>
-              Con nosotros es sencillo: en tu presentación anual marcas la casilla{" "}
-              <strong>«Última presentación»</strong> y la declaración se tramita como la última de
-              tu empresa.
+              Con nosotros, el cierre es un servicio propio: nos encargamos de la disolución ante el
+              estado, los formularios 1120 y 5472 finales y el cierre del EIN, en un máximo de 30 días
+              naturales (sin contar festivos). Cuesta <strong>467 $ + tasas del estado</strong>, para
+              LLC de Wyoming y Nuevo México con un solo socio.
             </p>
             <div className="pt-2">
-              <CtaLink href="/servicios#cierre" variant="dark">
+              <CtaLink href="/cierra-tu-llc" variant="dark">
                 Ver el servicio de cierre
               </CtaLink>
             </div>

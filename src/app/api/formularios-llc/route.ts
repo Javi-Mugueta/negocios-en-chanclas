@@ -3,6 +3,7 @@ import { agente, hashIp, ipDeLaPeticion } from "@/lib/ip";
 import { insertarLead, LimiteConsultasError } from "@/lib/leads";
 import { json } from "@/lib/sesion";
 import { esHoneypot, validarFormulariosLlc } from "@/lib/validacion";
+import { formulariosAbiertos } from "@/lib/visibilidad";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
  * Nada de lo recibido se escribe en los logs: solo el tipo de error.
  */
 export async function POST(request: Request) {
+  if (!formulariosAbiertos()) return json({ ok: false, error: "No encontrado." }, 404);
+
   let body: unknown;
   try {
     body = await request.json();

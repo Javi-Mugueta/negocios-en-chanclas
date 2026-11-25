@@ -41,7 +41,20 @@ export function PlanCards() {
               )}
             >
               {p.precio}
+              {p.precioNota && (
+                <span
+                  className={cn(
+                    "ml-2 font-sans text-base font-semibold",
+                    p.destacado ? "text-arena/70" : "text-tinta/60",
+                  )}
+                >
+                  {p.precioNota}
+                </span>
+              )}
             </p>
+            {p.aviso && (
+              <p className={cn("mt-2 text-xs", p.destacado ? "text-arena/60" : "text-tinta/55")}>{p.aviso}</p>
+            )}
 
             <div className={cn("my-7 h-px", p.destacado ? "bg-arena/15" : "bg-tinta/10")} />
 
