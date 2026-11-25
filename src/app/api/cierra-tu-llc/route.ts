@@ -1,3 +1,4 @@
+import { avisarLead } from "@/lib/aviso";
 import { getDb } from "@/lib/db";
 import { agente, hashIp, ipDeLaPeticion } from "@/lib/ip";
 import { insertarLead, LimiteConsultasError } from "@/lib/leads";
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
   try {
     const ipHash = hashIp(ipDeLaPeticion(request));
     const { id } = await insertarLead(getDb(), validado.datos, { ipHash, userAgent: agente(request) });
+    await avisarLead(validado.datos, id);
     return json({ ok: true, id });
   } catch (error) {
     if (error instanceof LimiteConsultasError) {
