@@ -7,6 +7,9 @@ import {
   esOrigen,
   esServicio,
   ESTADOS,
+  SERVICIOS,
+  SERVICIO_POR_PUNTO,
+  ETIQUETA_SERVICIO,
   type EstadoLead,
   type OrigenLead,
 } from "@/lib/etiquetas";
@@ -285,6 +288,40 @@ export async function contadores(db: BaseDatos, ahora = new Date()): Promise<Con
     semana: Number(semanaFilas[0]?.n ?? 0),
     porEstado,
   };
+}
+
+// Cada combinaci?n se cuenta una sola vez, aunque el endpoint de contacto acepte
+// tambi?n valores usados por formularios espec?ficos.
+export const FUENTES = [
+  ...SERVICIOS.map((servicio) => ({
+    origen: "contacto" as const,
+    servicio,
+    nombre: servicio === "encargo" ? "Encargo personalizado" : servicio === "formularios-llc" ? "Formularios LLC" : servicio === "cierre-llc" ? "Cierre de LLC" : `Contacto ? ${ETIQUETA_SERVICIO[servicio]}`,
+    url: servicio === "encargo" ? "/encargo-personalizado" : servicio === "formularios-llc" ? "/formularios-llc" : servicio === "cierre-llc" ? "/cierra-tu-llc" : `/contacto?servicio=${servicio}`,
+  })),
+  ...Object.values(SERVICIO_POR_PUNTO).map((servicio) => ({
+    origen: "empezar" as const,
+    servicio,
+    nombre: `Asistente ? ${ETIQUETA_SERVICIO[servicio]}`,
+    url: "/empezar",
+  })),
+];
+
+export async function contadoresFuentes(db: BaseDatos, ahora = new Date()) {
+  const agrupar = (desde?: string) => db.query<{ origen: string; servicio: string; n: number | string }>(
+    `select origen, servicio, count(*) as n from nec.leads where borrado_en is null${desde ? " and created_at >= $1" : ""} group by origen, servicio`,
+    desde ? [desde] : [],
+  );
+  const [totales, hoy, semana] = await Promise.all([
+    agrupar(), agrupar(inicioDiaMadrid(ahora).toISOString()), agrupar(inicioSemanaMadrid(ahora).toISOString()),
+  ]);
+  const cuenta = (filas: typeof totales, origen: string, servicio: string) =>
+    Number(filas.find((fila) => fila.origen === origen && fila.servicio === servicio)?.n ?? 0);
+  return FUENTES.map((fuente) => ({ ...fuente,
+    total: cuenta(totales, fuente.origen, fuente.servicio),
+    hoy: cuenta(hoy, fuente.origen, fuente.servicio),
+    semana: cuenta(semana, fuente.origen, fuente.servicio),
+  }));
 }
 
 export async function obtenerLead(db: BaseDatos, id: string): Promise<Lead | null> {

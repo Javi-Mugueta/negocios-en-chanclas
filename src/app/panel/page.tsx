@@ -6,7 +6,7 @@ import { Filtros, queryDeFiltros } from "@/components/panel/filtros";
 import { PanelMarco } from "@/components/panel/marco";
 import { ETIQUETA_ESTADO, ETIQUETA_ORIGEN, ESTADOS, etiquetaServicio } from "@/lib/etiquetas";
 import { formatFecha } from "@/lib/fechas";
-import { contadores, filtrosDesdeUrl, listarLeads, TAMANO_PAGINA, type Contadores, type FiltrosLeads, type Lead } from "@/lib/leads";
+import { contadores, contadoresFuentes, filtrosDesdeUrl, listarLeads, TAMANO_PAGINA, type Contadores, type FiltrosLeads, type Lead } from "@/lib/leads";
 import { getDb } from "@/lib/db";
 import { sesionActual } from "@/lib/sesion-servidor";
 
@@ -34,10 +34,12 @@ export default async function PanelPage({
   let leads: Lead[] = [];
   let total = 0;
   let cifras: Contadores | null = null;
+  let fuentes: Awaited<ReturnType<typeof contadoresFuentes>> = [];
   let fallo = false;
   try {
     const db = getDb();
-    const [lista, conteo] = await Promise.all([listarLeads(db, filtros), contadores(db)]);
+    const [lista, conteo, fuentesDb] = await Promise.all([listarLeads(db, filtros), contadores(db), contadoresFuentes(db)]);
+    fuentes = fuentesDb;
     leads = lista.leads;
     total = lista.total;
     cifras = conteo;
@@ -83,7 +85,27 @@ export default async function PanelPage({
         </>
       )}
 
-      <div className="mt-6">
+      {!fallo && (
+        <section className="mt-8" aria-labelledby="fuentes-titulo">
+          <h2 id="fuentes-titulo" className="text-xl font-bold">Fuentes de datos</h2>
+          <p className="mt-1 text-sm text-tinta/60">Consultas activas por origen y servicio. Hoy y esta semana, en hora de Madrid.</p>
+          <div className="mt-3 overflow-x-auto rounded-[1.5rem] border border-tinta/10 bg-card">
+            <table className="w-full min-w-[42rem] text-left text-sm">
+              <thead><tr className="text-tinta/60"><th className="p-3">Fuente</th><th className="p-3">URL p?blica</th><th className="p-3">Total</th><th className="p-3">Hoy</th><th className="p-3">Esta semana</th><th className="p-3"><span className="sr-only">Consultas</span></th></tr></thead>
+              <tbody>{fuentes.map((fuente) => (
+                <tr key={`${fuente.origen}-${fuente.servicio}`} className="border-t border-tinta/10">
+                  <th scope="row" className="p-3 font-semibold">{fuente.nombre}</th>
+                  <td className="p-3"><a className="underline" href={fuente.url}>{fuente.url}</a></td>
+                  <td className="p-3">{fuente.total}</td><td className="p-3">{fuente.hoy}</td><td className="p-3">{fuente.semana}</td>
+                  <td className="p-3"><Link className="font-semibold underline" href={`/panel?origen=${fuente.origen}&servicio=${fuente.servicio}#consultas`}>Ver consultas<span className="sr-only"> de {fuente.nombre}</span></Link></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <div id="consultas" className="mt-6">
         <Filtros filtros={filtros} />
       </div>
 
