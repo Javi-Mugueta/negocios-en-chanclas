@@ -24,6 +24,15 @@ const { POST: cierre } = await import("@/app/api/cierra-tu-llc/route");
 const { POST: login } = await import("@/app/api/panel/login/route");
 const { POST: logout } = await import("@/app/api/panel/logout/route");
 const { GET: listar } = await import("@/app/api/panel/leads/route");
+
+const ALTA = {
+  opcionesNombre: ["Sombrilla Studio LLC", "Sombrilla LLC", "Sunshade Studio LLC"],
+  direccion: "Calle Mayor 1, 2º B, 28013 Madrid, Madrid, España",
+  actividad: "Consultoría de marketing digital para pequeñas empresas de Europa.",
+  paisResidencia: "España",
+  facturacion: "menos-25k",
+  aceptaTerminos: true,
+};
 const { GET: exportar } = await import("@/app/api/panel/leads/export/route");
 const detalle = await import("@/app/api/panel/leads/[id]/route");
 const { verificarToken } = await import("@/lib/sesion");
@@ -115,9 +124,10 @@ test("el asistente guarda las respuestas en datos", async () => {
       punto: "crear",
       tipo: "llc-1",
       estado: "no-se",
-      sinNombre: true,
-      nombre: "Luis",
+      nombre: "Luis Pérez",
       email: "luis@example.com",
+      telefono: "+34 611 222 333",
+      alta: ALTA,
       consentimiento: true,
       pagina: "/empezar",
     }),
@@ -419,9 +429,10 @@ test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
       punto: "crear",
       tipo: "llc-1",
       estado: "New Mexico",
-      sinNombre: true,
-      nombre: "Eva",
+      nombre: "Eva Ruiz",
       email: "eva@example.com",
+      telefono: "+52 55 1234 5678",
+      alta: ALTA,
       plan: "estandar",
       consentimiento: true,
     }),
@@ -445,4 +456,64 @@ test("fuentes incluye combinaciones vacías y cuenta por origen y servicio en ho
   expect(fuentes.find((f) => f.servicio === "encargo")?.url).toBe("/encargo-personalizado");
   const filtros = filtrosDesdeUrl(new URL("https://negociosenchanclas.com/panel?origen=empezar&servicio=en-regla"));
   expect((await listarLeads(db, filtros)).total).toBe(0);
+});
+
+test("el asistente guarda los datos de alta y el panel los cuenta en fuentes", async () => {
+  const { contadoresFuentes, obtenerLead, tieneAltaCompleta } = await import("@/lib/leads");
+  const db = estado.db!;
+  const res = await empezar(
+    post("/api/empezar", {
+      punto: "crear",
+      tipo: "llc-2",
+      estado: "Wyoming",
+      nombre: "Marta López",
+      email: "marta@example.com",
+      telefono: "+54 11 2345 6789",
+      alta: { ...ALTA, facturacion: "mas-100k" },
+      consentimiento: true,
+    }),
+  );
+  expect(res.status).toBe(200);
+  // Un lead antiguo del asistente, sin datos de alta.
+  await db.query(
+    `insert into nec.leads (id, origen, servicio, nombre, email, datos, consentimiento)
+     values ('00000000-0000-4000-8000-000000000001', 'empezar', 'encargo', 'Antiguo', 'antiguo@example.com', '{"punto":"crear","sinNombre":true}', true)`,
+  );
+  const filas = await db.query<{ id: string; servicio: string; telefono: string }>(
+    "select id, servicio, telefono from nec.leads where email = 'marta@example.com'",
+  );
+  expect(filas[0]).toMatchObject({ servicio: "encargo", telefono: "+54 11 2345 6789" });
+  const lead = await obtenerLead(db, filas[0].id);
+  expect(tieneAltaCompleta(lead!)).toBe(true);
+  expect(lead!.datos.alta).toMatchObject({
+    paisResidencia: "España",
+    facturacionEtiqueta: "Más de 100.000 $",
+    opcionesNombre: ALTA.opcionesNombre,
+  });
+  const antiguo = await obtenerLead(db, "00000000-0000-4000-8000-000000000001");
+  expect(tieneAltaCompleta(antiguo!)).toBe(false);
+
+  const fuentes = await contadoresFuentes(db);
+  expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "encargo")).toMatchObject({ total: 2, conAlta: 1 });
+  expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "en-regla")?.conAlta).toBeNull();
+  expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "encargo")?.conAlta).toBeNull();
+});
+
+test("el asistente rechaza crear sin aceptar los términos", async () => {
+  const res = await empezar(
+    post("/api/empezar", {
+      punto: "crear",
+      tipo: "llc-1",
+      estado: "New Mexico",
+      nombre: "Eva Ruiz",
+      email: "eva@example.com",
+      telefono: "+34 600 000 000",
+      alta: { ...ALTA, aceptaTerminos: false },
+      consentimiento: true,
+    }),
+  );
+  expect(res.status).toBe(422);
+  const json = (await res.json()) as { errors: Record<string, string> };
+  expect(json.errors.aceptaTerminos).toBeTruthy();
+  expect(await estado.db!.query("select id from nec.leads")).toHaveLength(0);
 });

@@ -8,11 +8,29 @@ import { esLocal, quitarSslMode } from "@/lib/db";
 import { enlaceWhatsapp } from "@/lib/telefono";
 import { esHoneypot, validarContacto, validarEmpezar } from "@/lib/validacion";
 import { casoAsistente } from "@/lib/asistente";
+import {
+  erroresPasoAlta,
+  MAX_OPCIONES_NOMBRE,
+  pasosDe,
+  PASOS_ALTA,
+  telefonoConPrefijo,
+  validarAlta,
+  type BorradorAlta,
+} from "@/lib/alta";
 import { estadosConstitucion, navegacion, planes } from "@/lib/site";
 import { formulariosAbiertos, leerLanzamiento } from "@/lib/visibilidad";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
 process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
+
+const ALTA_OK = {
+  opcionesNombre: ["Sombrilla Studio LLC", "Sombrilla LLC", "Sunshade Studio LLC"],
+  direccion: "Calle Mayor 1, 2º B, 28013 Madrid, Madrid, España",
+  actividad: "Consultoría de marketing digital para pequeñas empresas de Europa.",
+  paisResidencia: "España",
+  facturacion: "25k-50k",
+  aceptaTerminos: true,
+};
 
 describe("conexión", () => {
   test("quita sslmode sin tocar el resto de la URL", () => {
@@ -140,7 +158,14 @@ describe("validación", () => {
   });
 
   test("el asistente manda a encargo lo que no cubren los planes", () => {
-    const base = { punto: "crear", sinNombre: true, nombre: "Ana", email: "ana@example.com", consentimiento: true };
+    const base = {
+      punto: "crear",
+      nombre: "Ana García",
+      email: "ana@example.com",
+      telefono: "+34 600 000 000",
+      consentimiento: true,
+      alta: ALTA_OK,
+    };
     const casos: [Record<string, unknown>, string][] = [
       [{ tipo: "llc-1", estado: "New Mexico", plan: "basico" }, "arranque"],
       [{ tipo: "llc-1", estado: "no-se" }, "arranque"],
@@ -220,6 +245,139 @@ describe("contenido", () => {
       expect(plan.href).toMatch(/^https:\/\/buy\.stripe\.com\//);
       expect(plan.incluye).toContain("Operating Agreement (modelo estándar)");
       expect(plan.aviso).toBe("*Renovación anual: 197 $/año a partir del segundo año.");
+    }
+  });
+});
+
+describe("datos de alta del asistente", () => {
+  const borrador: BorradorAlta = {
+    nombre: "Ana García",
+    email: "ana@example.com",
+    opcionesNombre: [...ALTA_OK.opcionesNombre],
+    telefono: "+34 600 000 000",
+    direccion: ALTA_OK.direccion,
+    actividad: ALTA_OK.actividad,
+    paisResidencia: "España",
+    facturacion: "25k-50k",
+    aceptaTerminos: true,
+    consentimiento: true,
+  };
+
+  test("crear añade los 10 pasos de alta después de punto, tipo y estado; el resto no cambia", () => {
+    const crear = pasosDe("crear").map((p) => p.id);
+    expect(crear.slice(0, 3)).toEqual(["punto", "tipo", "estado"]);
+    expect(crear.slice(3)).toEqual(PASOS_ALTA.map((p) => p.id));
+    expect(crear).toHaveLength(13);
+    expect(crear.filter((id) => id === "email")).toHaveLength(1);
+    expect(pasosDe("anual").map((p) => p.id)).toEqual(["punto", "tipo", "estado", "nombre", "contacto"]);
+    expect(pasosDe(null)).toHaveLength(5);
+  });
+
+  test("cada paso del alta solo es válido con sus datos (Continuar deshabilitado si no)", () => {
+    for (const { id } of PASOS_ALTA) expect(erroresPasoAlta(id, borrador)).toEqual({});
+    const vacio: BorradorAlta = {
+      nombre: "",
+      email: "",
+      opcionesNombre: ["", "", ""],
+      telefono: "",
+      direccion: "",
+      actividad: "",
+      paisResidencia: "",
+      facturacion: null,
+      aceptaTerminos: false,
+      consentimiento: false,
+    };
+    const conError = PASOS_ALTA.filter(({ id }) => Object.keys(erroresPasoAlta(id, vacio)).length > 0).map((p) => p.id);
+    // El pasaporte es opcional: el único paso que se puede saltar.
+    expect(conError).toEqual(PASOS_ALTA.map((p) => p.id).filter((id) => id !== "pasaporte"));
+    expect(erroresPasoAlta("aceptacion", { ...borrador, consentimiento: false })).toHaveProperty("consentimiento");
+    expect(erroresPasoAlta("aceptacion", { ...borrador, aceptaTerminos: false })).toHaveProperty("aceptaTerminos");
+  });
+
+  test("opciones de nombre: 3 obligatorias, hasta 6, sin repetir", () => {
+    const con = (opcionesNombre: string[]) => erroresPasoAlta("opciones", { ...borrador, opcionesNombre });
+    expect(con(["A LLC", "B LLC", ""])).toHaveProperty("opcionesNombre");
+    expect(con(["A LLC", "B LLC", "C LLC", ""])).toEqual({});
+    expect(con(["A LLC", "B LLC", "C LLC", "D LLC", "E LLC", "F LLC"])).toEqual({});
+    expect(con(["A LLC", "B LLC", "C LLC", "D LLC", "E LLC", "F LLC", "G LLC"])).toHaveProperty("opcionesNombre");
+    expect(con(["A LLC", "a llc", "C LLC"])).toHaveProperty("opcionesNombre");
+    expect(MAX_OPCIONES_NOMBRE).toBe(6);
+  });
+
+  test("teléfono con prefijo y actividad de al menos 30 caracteres", () => {
+    expect(telefonoConPrefijo("+34 600 000 000")).toBe(true);
+    expect(telefonoConPrefijo("+52 (55) 1234-5678")).toBe(true);
+    expect(telefonoConPrefijo("600 000 000")).toBe(false);
+    expect(telefonoConPrefijo("+34 6")).toBe(false);
+    expect(erroresPasoAlta("actividad", { ...borrador, actividad: "Venta online" })).toHaveProperty("actividad");
+    expect(erroresPasoAlta("actividad", { ...borrador, actividad: "x".repeat(30) })).toEqual({});
+  });
+
+  test("el servidor valida el bloque de alta con zod", () => {
+    expect(validarAlta(ALTA_OK)).toMatchObject({ alta: { facturacion: "25k-50k", aceptaTerminos: true } });
+    const malo = validarAlta({ ...ALTA_OK, facturacion: "mucho", aceptaTerminos: false, actividad: "corta" });
+    expect(malo).toMatchObject({
+      errores: { facturacion: expect.any(String), aceptaTerminos: expect.any(String), actividad: expect.any(String) },
+    });
+    expect(validarAlta(undefined)).toHaveProperty("errores.opcionesNombre");
+    expect(validarAlta({ ...ALTA_OK, opcionesNombre: "Sombrilla LLC" })).toHaveProperty("errores.opcionesNombre");
+  });
+
+  test("crear exige los datos de alta y los guarda en el lead", () => {
+    const base = {
+      punto: "crear",
+      tipo: "llc-1",
+      estado: "New Mexico",
+      nombre: "Ana García",
+      email: "Ana@Example.com",
+      telefono: "+34 600 000 000",
+      consentimiento: true,
+      plan: "basico",
+    };
+    const sinAlta = validarEmpezar(base);
+    expect(sinAlta).toMatchObject({ errores: { opcionesNombre: expect.any(String) } });
+    const sinTelefono = validarEmpezar({ ...base, telefono: "", alta: ALTA_OK });
+    expect(sinTelefono).toMatchObject({ errores: { telefono: expect.any(String) } });
+
+    const bueno = validarEmpezar({ ...base, alta: { ...ALTA_OK, opcionesNombre: [...ALTA_OK.opcionesNombre, "  "] } });
+    expect(bueno).toMatchObject({
+      datos: {
+        servicio: "arranque",
+        nombre: "Ana García",
+        email: "ana@example.com",
+        telefono: "+34 600 000 000",
+        datos: {
+          caso: "plan",
+          plan: "basico",
+          nombreLlc: "Sombrilla Studio LLC",
+          altaCompleta: true,
+          alta: {
+            opcionesNombre: ALTA_OK.opcionesNombre,
+            facturacion: "25k-50k",
+            facturacionEtiqueta: "Entre 25.000 $ y 50.000 $",
+            pasaporte: "pendiente",
+            aceptaTerminos: true,
+          },
+        },
+      },
+    });
+  });
+
+  test("«ya tengo LLC» sigue igual: sin alta y con teléfono opcional", () => {
+    const res = validarEmpezar({
+      punto: "anual",
+      tipo: "llc-1",
+      requisitos: "si",
+      estado: "Wyoming",
+      nombreLLC: "Sombrilla LLC",
+      nombre: "Ana",
+      email: "ana@example.com",
+      consentimiento: true,
+    });
+    expect(res).toMatchObject({ datos: { servicio: "en-regla", telefono: null } });
+    if ("datos" in res) {
+      expect(res.datos.datos.alta).toBeUndefined();
+      expect(res.datos.datos.altaCompleta).toBeUndefined();
     }
   });
 });

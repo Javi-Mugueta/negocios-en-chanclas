@@ -3,13 +3,27 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Copy, Lock, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, FileText, Lock, Plus, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
 import { Honeypot } from "@/components/honeypot";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  erroresPasoAlta,
+  esPasoAlta,
+  FACTURACION,
+  FACTURACIONES,
+  limpiarOpciones,
+  MAX_OPCIONES_NOMBRE,
+  MIN_ACTIVIDAD,
+  MIN_OPCIONES_NOMBRE,
+  pasosDe,
+  type Facturacion,
+  type PasoAsistente,
+  type PasoId,
+} from "@/lib/alta";
 import { leerAtribucion } from "@/lib/atribucion";
 import {
   casoAsistente,
@@ -44,10 +58,16 @@ type Respuestas = {
   estado: string | null;
   otroEstado: string;
   nombreLLC: string;
-  sinNombre: boolean;
   nombre: string;
   email: string;
   telefono: string;
+  // Datos de alta (solo «crear»).
+  opcionesNombre: string[];
+  direccion: string;
+  actividad: string;
+  paisResidencia: string;
+  facturacion: Facturacion | null;
+  aceptaTerminos: boolean;
 };
 
 const vacio: Respuestas = {
@@ -57,20 +77,34 @@ const vacio: Respuestas = {
   estado: null,
   otroEstado: "",
   nombreLLC: "",
-  sinNombre: false,
   nombre: "",
   email: "",
   telefono: "",
+  opcionesNombre: Array.from({ length: MIN_OPCIONES_NOMBRE }, () => ""),
+  direccion: "",
+  actividad: "",
+  paisResidencia: "",
+  facturacion: null,
+  aceptaTerminos: false,
 };
 
-const pasos = [
-  { id: "punto", label: "Punto de partida" },
-  { id: "tipo", label: "Tipo de empresa" },
-  { id: "estado", label: "Estado" },
-  { id: "nombre", label: "Nombre" },
-  { id: "contacto", label: "Contacto" },
-] as const;
-const RESULTADO = pasos.length;
+const PLACEHOLDERS_NOMBRE = ["Ej. Mi Empresa LLC", "Ej. MiEmpresa LLC", "Ej. My Company LLC"];
+
+/** A qué paso pertenece cada campo, para llevar a la persona al error que devuelva el servidor. */
+const PASO_DE_CAMPO: Record<string, PasoId> = {
+  punto: "punto",
+  tipo: "tipo",
+  requisitos: "tipo",
+  estado: "estado",
+  otroEstado: "estado",
+  nombreLLC: "nombre",
+  opcionesNombre: "opciones",
+  direccion: "direccion",
+  actividad: "actividad",
+  paisResidencia: "pais",
+  facturacion: "facturacion",
+  aceptaTerminos: "aceptacion",
+};
 
 const planBasico = planes.find((p) => p.id === "basico")!;
 const planEstandar = planes.find((p) => p.id === "estandar")!;
@@ -133,6 +167,9 @@ export function FormationWizard({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const router = useRouter();
   const caso = casoAsistente(r);
+  const pasos = pasosDe(r.punto);
+  const RESULTADO = pasos.length;
+  const idPaso: PasoId | null = paso < RESULTADO ? pasos[paso].id : null;
   const primerRender = useRef(true);
 
   useEffect(() => {
@@ -155,22 +192,18 @@ export function FormationWizard({
 
   function validar(i: number): Record<string, string> {
     const e: Record<string, string> = {};
-    if (i === 0 && !r.punto) e.punto = "Elige por dónde empezamos.";
-    if (i === 1 && !r.tipo) e.tipo = "Elige el tipo de empresa.";
-    if (i === 1 && r.punto === "anual" && !r.requisitos) e.requisitos = "Dinos si cumples los requisitos.";
-    if (i === 2) {
+    const id = pasos[i]?.id;
+    if (!id) return e;
+    if (esPasoAlta(id)) return erroresPasoAlta(id, { ...r, consentimiento });
+    if (id === "punto" && !r.punto) e.punto = "Elige por dónde empezamos.";
+    if (id === "tipo" && !r.tipo) e.tipo = "Elige el tipo de empresa.";
+    if (id === "tipo" && r.punto === "anual" && !r.requisitos) e.requisitos = "Dinos si cumples los requisitos.";
+    if (id === "estado") {
       if (!r.estado) e.estado = "Elige un estado (o dinos que aún no lo sabes).";
       else if (r.estado === "otro" && !r.otroEstado) e.otroEstado = "Elige el estado de la lista.";
     }
-    if (i === 3) {
-      const necesitaNombre = r.punto !== "crear" || !r.sinNombre;
-      if (necesitaNombre && !r.nombreLLC.trim())
-        e.nombreLLC =
-          r.punto === "crear"
-            ? "Escribe un nombre o marca que aún no lo tienes."
-            : "Escribe el nombre de tu LLC.";
-    }
-    if (i === 4) {
+    if (id === "nombre" && !r.nombreLLC.trim()) e.nombreLLC = "Escribe el nombre de tu LLC.";
+    if (id === "contacto") {
       if (!r.nombre.trim()) e.nombre = "Dinos cómo te llamas.";
       if (!EMAIL_RE.test(r.email.trim())) e.email = "Escribe un email válido.";
       if (r.telefono.trim() && (r.telefono.trim().length < 5 || !/\d/.test(r.telefono))) {
@@ -183,6 +216,7 @@ export function FormationWizard({
 
   function irA(i: number) {
     setErrores({});
+    setErrorEnvio("");
     setPaso(i);
     setMaxPaso((m) => Math.max(m, i));
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -207,6 +241,17 @@ export function FormationWizard({
       return;
     }
 
+    const esCrear = r.punto === "crear";
+    const alta = esCrear
+      ? {
+          opcionesNombre: limpiarOpciones(r.opcionesNombre),
+          direccion: r.direccion,
+          actividad: r.actividad,
+          paisResidencia: r.paisResidencia,
+          facturacion: r.facturacion,
+          aceptaTerminos: r.aceptaTerminos,
+        }
+      : undefined;
     const firma = JSON.stringify({
       punto: r.punto,
       tipo: r.tipo,
@@ -214,10 +259,10 @@ export function FormationWizard({
       estado: r.estado,
       otroEstado: r.otroEstado,
       nombreLLC: r.nombreLLC,
-      sinNombre: r.sinNombre,
       nombre: r.nombre,
       email: r.email,
       telefono: r.telefono,
+      alta,
     });
     if (firma === firmaGuardada) {
       irA(paso + 1);
@@ -236,11 +281,11 @@ export function FormationWizard({
           requisitos: r.punto === "anual" ? r.requisitos : undefined,
           estado: r.estado,
           otroEstado: r.otroEstado,
-          nombreLLC: r.nombreLLC,
-          sinNombre: r.sinNombre,
+          nombreLLC: esCrear ? undefined : r.nombreLLC,
           nombre: r.nombre,
           email: r.email,
           telefono: r.telefono,
+          alta,
           plan: caso === "plan" ? plan : undefined,
           consentimiento: true,
           nec_hp: String(new FormData(e.currentTarget).get("nec_hp") ?? ""),
@@ -249,8 +294,19 @@ export function FormationWizard({
       });
       const json = (await res.json().catch(() => ({}))) as { errors?: Record<string, string>; error?: string };
       if (!res.ok) {
-        if (json.errors) setErrores(json.errors);
-        setErrorEnvio(json.error || "No hemos podido guardar tus respuestas.");
+        if (json.errors) {
+          // Llevamos a la persona al primer paso con un error.
+          const indices = Object.keys(json.errors)
+            .map((clave) => pasos.findIndex((p) => p.id === pasoDeCampo(clave, esCrear)))
+            .filter((i) => i >= 0);
+          const destino = indices.length ? Math.min(...indices) : paso;
+          if (destino !== paso) irA(destino);
+          setErrores(json.errors);
+        }
+        setErrorEnvio(
+          json.error ||
+            (json.errors ? "Revisa los datos marcados." : "No hemos podido guardar tus respuestas."),
+        );
         return;
       }
       setFirmaGuardada(firma);
@@ -289,10 +345,11 @@ export function FormationWizard({
   const estadoTexto =
     r.estado === "otro" ? r.otroEstado : r.estado === "no-se" ? "Aún por decidir" : (r.estado ?? "");
 
+  const indiceDe = (id: PasoId) => Math.max(0, pasos.findIndex((p) => p.id === id));
   const resumen = [
-    { paso: 0, k: "Punto de partida", v: puntos.find((p) => p.value === r.punto)?.titulo ?? "" },
+    { paso: indiceDe("punto"), k: "Punto de partida", v: puntos.find((p) => p.value === r.punto)?.titulo ?? "" },
     {
-      paso: 1,
+      paso: indiceDe("tipo"),
       k: "Tipo de empresa",
       v: [
         tiposDe(r.punto).find((t) => t.value === r.tipo)?.titulo ?? "",
@@ -305,13 +362,37 @@ export function FormationWizard({
         .filter(Boolean)
         .join(" · "),
     },
-    { paso: 2, k: "Estado", v: estadoTexto },
-    { paso: 3, k: "Nombre de la LLC", v: r.sinNombre && r.punto === "crear" ? "Aún por decidir" : r.nombreLLC },
-    {
-      paso: 4,
-      k: "Contacto",
-      v: [r.nombre, r.email, r.telefono].filter(Boolean).join(" · "),
-    },
+    { paso: indiceDe("estado"), k: "Estado", v: estadoTexto },
+    ...(r.punto === "crear"
+      ? [
+          { paso: indiceDe("titular"), k: "Titular", v: r.nombre.trim() },
+          { paso: indiceDe("email"), k: "Email", v: r.email.trim() },
+          {
+            paso: indiceDe("opciones"),
+            k: "Nombres de la LLC",
+            v: limpiarOpciones(r.opcionesNombre)
+              .map((o, i) => `${i + 1}. ${o}`)
+              .join(" · "),
+          },
+          { paso: indiceDe("telefono"), k: "Teléfono", v: r.telefono.trim() },
+          { paso: indiceDe("direccion"), k: "Dirección", v: r.direccion.trim() },
+          { paso: indiceDe("actividad"), k: "Actividad", v: r.actividad.trim() },
+          { paso: indiceDe("pasaporte"), k: "Pasaporte", v: "Te lo pediremos más adelante por email" },
+          { paso: indiceDe("pais"), k: "País de residencia", v: r.paisResidencia.trim() },
+          {
+            paso: indiceDe("facturacion"),
+            k: "Facturación esperada",
+            v: r.facturacion ? FACTURACION[r.facturacion] : "",
+          },
+        ]
+      : [
+          { paso: indiceDe("nombre"), k: "Nombre de la LLC", v: r.nombreLLC },
+          {
+            paso: indiceDe("contacto"),
+            k: "Contacto",
+            v: [r.nombre, r.email, r.telefono].filter(Boolean).join(" · "),
+          },
+        ]),
   ];
 
   async function copiarResumen() {
@@ -329,6 +410,14 @@ export function FormationWizard({
   }
 
   const progreso = Math.round((Math.min(paso, RESULTADO) / RESULTADO) * 100);
+  const pasoInvalido = idPaso != null && esPasoAlta(idPaso) && Object.keys(validar(paso)).length > 0;
+  const textoBoton = enviando
+    ? "Guardando…"
+    : idPaso === "pasaporte"
+      ? "Omitir para más adelante"
+      : paso === pasos.length - 1
+        ? "Ver mi siguiente paso"
+        : "Continuar";
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
@@ -339,7 +428,7 @@ export function FormationWizard({
               Plan elegido: <strong>{PLANES_ASISTENTE[plan]}</strong>
             </p>
           )}
-          <StepIndicator paso={paso} maxPaso={maxPaso} onIr={saltarA} />
+          <StepIndicator pasos={pasos} paso={paso} maxPaso={maxPaso} onIr={saltarA} />
           <div className="mt-6 hidden items-start gap-3 rounded-3xl border border-dashed border-tinta/20 p-5 text-sm text-tinta/70 lg:flex">
             <Lock className="mt-0.5 size-4 shrink-0 text-chancla-2" aria-hidden="true" />
             <p>
@@ -357,7 +446,9 @@ export function FormationWizard({
                 ? `Paso ${paso + 1} de ${pasos.length} · ${pasos[paso].label}`
                 : "Tu siguiente paso"}
             </p>
-            <span className="font-mono text-xs text-tinta/50">{progreso}%</span>
+            <span className="font-mono text-xs text-tinta/50">
+              {Math.min(paso + 1, pasos.length)} / {pasos.length}
+            </span>
           </div>
           <div
             className="relative mt-3 h-2 rounded-full bg-tinta/10"
@@ -389,7 +480,7 @@ export function FormationWizard({
             className="relative rounded-[2rem] border border-tinta/10 bg-card p-6 shadow-[0_30px_60px_-40px_rgba(19,41,61,0.4)] animate-in fade-in slide-in-from-bottom-2 duration-500 sm:p-10"
           >
             <Honeypot />
-            {paso === 0 && (
+            {idPaso === "punto" && (
               <Paso
                 headingRef={headingRef}
                 titulo="¿En qué punto estás?"
@@ -403,6 +494,7 @@ export function FormationWizard({
                       value={p.value}
                       checked={r.punto === p.value}
                       onChange={() => {
+                        if (p.value !== r.punto) setMaxPaso(0);
                         set("punto", p.value);
                         if (p.value !== "crear" && r.estado === "no-se") set("estado", null);
                         if (p.value !== "crear" && r.tipo === "corp") set("tipo", null);
@@ -416,7 +508,7 @@ export function FormationWizard({
               </Paso>
             )}
 
-            {paso === 1 && (
+            {idPaso === "tipo" && (
               <Paso
                 headingRef={headingRef}
                 titulo={r.punto === "crear" ? "¿Cómo será tu LLC?" : "¿Cómo es tu LLC?"}
@@ -474,7 +566,7 @@ export function FormationWizard({
               </Paso>
             )}
 
-            {paso === 2 && (
+            {idPaso === "estado" && (
               <Paso
                 headingRef={headingRef}
                 titulo={
@@ -546,15 +638,11 @@ export function FormationWizard({
               </Paso>
             )}
 
-            {paso === 3 && (
+            {idPaso === "nombre" && (
               <Paso
                 headingRef={headingRef}
-                titulo={r.punto === "crear" ? "¿Cómo se llamará?" : "¿Cómo se llama tu LLC?"}
-                texto={
-                  r.punto === "crear"
-                    ? "Si ya tienes un nombre en mente, apúntalo. Si no, no pasa nada: lo pensamos juntos."
-                    : "Tal y como aparece en tus documentos oficiales."
-                }
+                titulo="¿Cómo se llama tu LLC?"
+                texto="Tal y como aparece en tus documentos oficiales."
               >
                 <div className="space-y-2">
                   <Label htmlFor="nombreLLC" className="font-semibold">
@@ -566,9 +654,7 @@ export function FormationWizard({
                       data-campo="nombreLLC"
                       value={r.nombreLLC}
                       maxLength={120}
-                      disabled={r.punto === "crear" && r.sinNombre}
                       onChange={(e) => set("nombreLLC", e.target.value)}
-                      placeholder={r.punto === "crear" ? "Por ejemplo: Sombrilla Studio" : ""}
                       aria-invalid={!!errores.nombreLLC}
                       aria-describedby={errores.nombreLLC ? "nombreLLC-error" : "nombreLLC-hint"}
                       className="h-14 rounded-2xl border-tinta/15 bg-white pr-16 pl-4 text-lg focus-visible:border-chancla focus-visible:ring-chancla/20"
@@ -583,25 +669,14 @@ export function FormationWizard({
                     <FieldError id="nombreLLC-error">{errores.nombreLLC}</FieldError>
                   ) : (
                     <p id="nombreLLC-hint" className="text-sm text-tinta/55">
-                      Solo sirve para preparar tu caso. El registro oficial, si toca, va después.
+                      Solo sirve para preparar tu caso.
                     </p>
                   )}
                 </div>
-                {r.punto === "crear" && (
-                  <label className="mt-5 flex cursor-pointer items-center gap-3 text-tinta/75">
-                    <input
-                      type="checkbox"
-                      checked={r.sinNombre}
-                      onChange={(e) => set("sinNombre", e.target.checked)}
-                      className="size-5 rounded accent-[var(--chancla)]"
-                    />
-                    Todavía no lo tengo claro
-                  </label>
-                )}
               </Paso>
             )}
 
-            {paso === 4 && (
+            {idPaso === "contacto" && (
               <Paso
                 headingRef={headingRef}
                 titulo="¿Cómo te llamamos?"
@@ -681,6 +756,324 @@ export function FormationWizard({
               </Paso>
             )}
 
+            {idPaso === "titular" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Quién será el titular de la LLC?"
+                texto={
+                  <>
+                    Empezamos con los datos de alta. Tu nombre completo, tal y como aparece en el pasaporte.
+                    {r.tipo !== "llc-1" && (
+                      <span className="mt-2 block text-base">Si hay más socios, te pediremos sus datos después.</span>
+                    )}
+                  </>
+                }
+              >
+                <TextField
+                  id="nombre"
+                  label="Nombre completo del titular"
+                  value={r.nombre}
+                  onChange={(v) => set("nombre", v)}
+                  error={errores.nombre}
+                  autoComplete="name"
+                  maxLength={120}
+                  placeholder="Nombre y apellidos"
+                />
+              </Paso>
+            )}
+
+            {idPaso === "email" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿A qué email te escribimos?"
+                texto="Ahí te llegarán las novedades de tu LLC y los documentos que te pidamos."
+              >
+                <TextField
+                  id="email"
+                  label="Email de contacto"
+                  type="email"
+                  value={r.email}
+                  onChange={(v) => set("email", v)}
+                  error={errores.email}
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="tu@email.com"
+                />
+              </Paso>
+            )}
+
+            {idPaso === "opciones" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Cómo te gustaría que se llamara?"
+                texto="Danos al menos 3 opciones por si alguna no estuviera disponible. Las revisaremos en orden de preferencia."
+              >
+                <fieldset aria-describedby={errores.opcionesNombre ? "opcionesNombre-error" : undefined}>
+                  <legend className="sr-only">Opciones de nombre para la LLC</legend>
+                  <ol className="space-y-3">
+                    {r.opcionesNombre.map((opcion, i) => (
+                      <li key={i} className="flex items-center gap-3">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-tinta/8 font-mono text-xs font-semibold text-tinta/60">
+                          {i + 1}
+                        </span>
+                        <Label htmlFor={`opcion-${i}`} className="sr-only">
+                          {`Opción ${i + 1}${i < MIN_OPCIONES_NOMBRE ? "" : " (opcional)"}`}
+                        </Label>
+                        <Input
+                          id={`opcion-${i}`}
+                          data-campo={i === 0 ? "opcionesNombre" : undefined}
+                          value={opcion}
+                          maxLength={120}
+                          placeholder={PLACEHOLDERS_NOMBRE[i] ?? "Otra opción"}
+                          onChange={(e) => {
+                            const siguientes = [...r.opcionesNombre];
+                            siguientes[i] = e.target.value;
+                            set("opcionesNombre", siguientes);
+                          }}
+                          aria-invalid={!!errores.opcionesNombre}
+                          className="h-12 rounded-2xl border-tinta/15 bg-white px-4 text-base focus-visible:border-chancla focus-visible:ring-chancla/20"
+                        />
+                        {i >= MIN_OPCIONES_NOMBRE && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              set(
+                                "opcionesNombre",
+                                r.opcionesNombre.filter((_, j) => j !== i),
+                              )
+                            }
+                            className="grid size-10 shrink-0 place-items-center rounded-full text-tinta/55 ring-1 ring-tinta/15 transition hover:bg-tinta/5 hover:text-tinta focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none"
+                            aria-label={`Quitar la opción ${i + 1}`}
+                          >
+                            <X className="size-4" aria-hidden="true" />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                  {r.opcionesNombre.length < MAX_OPCIONES_NOMBRE && (
+                    <button
+                      type="button"
+                      onClick={() => set("opcionesNombre", [...r.opcionesNombre, ""])}
+                      className="mt-4 inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-chancla-2 ring-1 ring-chancla/30 transition hover:bg-chancla/10 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none"
+                    >
+                      <Plus className="size-4" aria-hidden="true" /> Añadir otra opción
+                    </button>
+                  )}
+                  {errores.opcionesNombre && (
+                    <FieldError id="opcionesNombre-error" className="mt-4">
+                      {errores.opcionesNombre}
+                    </FieldError>
+                  )}
+                </fieldset>
+              </Paso>
+            )}
+
+            {idPaso === "telefono" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Y un teléfono?"
+                texto="Con el prefijo del país. Lo usaremos solo si hace falta aclarar algo de tu alta."
+              >
+                <TextField
+                  id="telefono"
+                  label="Teléfono de contacto (con prefijo)"
+                  type="tel"
+                  value={r.telefono}
+                  onChange={(v) => set("telefono", v)}
+                  error={errores.telefono}
+                  autoComplete="tel"
+                  inputMode="tel"
+                  maxLength={40}
+                  placeholder="+34 600 000 000"
+                />
+              </Paso>
+            )}
+
+            {idPaso === "direccion" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Cuál es tu dirección?"
+                texto="Tiene que poder recibir correspondencia. Puede ser la personal o la de tu negocio."
+              >
+                <AreaTexto
+                  id="direccion"
+                  label="Dirección completa"
+                  value={r.direccion}
+                  onChange={(v) => set("direccion", v)}
+                  error={errores.direccion}
+                  maxLength={300}
+                  rows={3}
+                  placeholder="Calle, número, piso/puerta, CP, localidad, provincia y país"
+                  hint="Calle, número, piso/puerta, código postal, localidad, provincia y país."
+                />
+              </Paso>
+            )}
+
+            {idPaso === "actividad" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿A qué se va a dedicar tu LLC?"
+                texto="Un resumen corto, con tus palabras. Nos sirve para describir la actividad en el alta."
+              >
+                <AreaTexto
+                  id="actividad"
+                  label="Resumen de la actividad de la LLC"
+                  value={r.actividad}
+                  onChange={(v) => set("actividad", v)}
+                  error={errores.actividad}
+                  maxLength={2000}
+                  rows={5}
+                  placeholder="Por ejemplo: consultoría de marketing digital para pequeñas empresas, con clientes en Europa y Latinoamérica."
+                  hint={
+                    r.actividad.trim().length < MIN_ACTIVIDAD
+                      ? `Mínimo ${MIN_ACTIVIDAD} caracteres · llevas ${r.actividad.trim().length}`
+                      : `${r.actividad.trim().length} caracteres`
+                  }
+                />
+              </Paso>
+            )}
+
+            {idPaso === "pasaporte" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="Fotografía del pasaporte"
+                texto="De la hoja con tus datos. Que se vea bien, sin brillos ni reflejos y con las 4 esquinas visibles."
+              >
+                <div className="flex items-start gap-4 rounded-2xl border-2 border-dashed border-tinta/15 bg-white/60 p-5">
+                  <FileText className="mt-0.5 size-6 shrink-0 text-chancla-2" aria-hidden="true" />
+                  <div>
+                    <p className="font-semibold text-tinta">Te lo pediremos más adelante por email.</p>
+                    <p className="mt-1 text-sm text-tinta/60">
+                      Ve teniéndolo a mano: PNG, JPG o PDF, máximo 10 MB. Este paso es opcional por ahora.
+                    </p>
+                  </div>
+                </div>
+              </Paso>
+            )}
+
+            {idPaso === "pais" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿En qué país resides?"
+                texto="El país donde vives ahora mismo."
+              >
+                <TextField
+                  id="paisResidencia"
+                  label="País de residencia"
+                  value={r.paisResidencia}
+                  onChange={(v) => set("paisResidencia", v)}
+                  error={errores.paisResidencia}
+                  autoComplete="country-name"
+                  maxLength={80}
+                  placeholder="Ej: España, México, Argentina..."
+                />
+              </Paso>
+            )}
+
+            {idPaso === "facturacion" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Cuánto esperas facturar?"
+                texto="La facturación anual media esperada en los primeros 2 años. Una estimación es suficiente."
+              >
+                <RadioGroup name="facturacion" label="Facturación anual media esperada" error={errores.facturacion}>
+                  {FACTURACIONES.map((f) => (
+                    <OptionCard
+                      key={f}
+                      name="facturacion"
+                      value={f}
+                      checked={r.facturacion === f}
+                      onChange={() => set("facturacion", f)}
+                      titulo={FACTURACION[f]}
+                      compact
+                    />
+                  ))}
+                </RadioGroup>
+              </Paso>
+            )}
+
+            {idPaso === "aceptacion" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="Último paso"
+                texto="Revisa y acepta las condiciones. Al continuar, guardamos tus datos de alta."
+              >
+                <div className="space-y-4">
+                  <label className="flex cursor-pointer items-start gap-3 text-tinta/80">
+                    <input
+                      type="checkbox"
+                      data-campo="aceptaTerminos"
+                      checked={r.aceptaTerminos}
+                      onChange={(e) => set("aceptaTerminos", e.target.checked)}
+                      className="mt-0.5 size-5 shrink-0 accent-[var(--chancla)]"
+                      aria-invalid={!!errores.aceptaTerminos}
+                    />
+                    <span>
+                      Acepto los{" "}
+                      <Link
+                        href="/legal"
+                        target="_blank"
+                        className="font-medium text-tinta underline underline-offset-2"
+                      >
+                        Términos y Condiciones del servicio de apertura de LLC
+                      </Link>
+                      .
+                      {errores.aceptaTerminos && (
+                        <span className="mt-1 block text-sm font-medium text-destructive">
+                          {errores.aceptaTerminos}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-3 text-sm text-tinta/70">
+                    <input
+                      type="checkbox"
+                      data-campo="consentimiento"
+                      checked={consentimiento}
+                      onChange={(e) => {
+                        setConsentimiento(e.target.checked);
+                        setErrores((prev) => {
+                          if (!prev.consentimiento) return prev;
+                          const next = { ...prev };
+                          delete next.consentimiento;
+                          return next;
+                        });
+                      }}
+                      className="mt-0.5 size-5 shrink-0 accent-[var(--chancla)]"
+                      aria-invalid={!!errores.consentimiento}
+                    />
+                    <span>
+                      Acepto que Negocios en Chanclas use estos datos para preparar mi alta y responder a mi
+                      consulta, según su{" "}
+                      <Link href="/legal" className="font-medium text-tinta underline underline-offset-2">
+                        política de privacidad
+                      </Link>
+                      .
+                      {errores.consentimiento && (
+                        <span className="mt-1 block font-medium text-destructive">{errores.consentimiento}</span>
+                      )}
+                    </span>
+                  </label>
+                </div>
+              </Paso>
+            )}
+
+            {errorEnvio && idPaso !== "contacto" && (
+              <p role="alert" className="mt-5 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">
+                {errorEnvio}{" "}
+                <a
+                  className="font-semibold underline"
+                  href={contacto.whatsapp.espana.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Escríbenos por WhatsApp
+                </a>
+                .
+              </p>
+            )}
+
             <div className="mt-10 flex flex-col-reverse gap-3 border-t border-tinta/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
               {paso > 0 ? (
                 <button
@@ -695,10 +1088,10 @@ export function FormationWizard({
               )}
               <button
                 type="submit"
-                disabled={enviando}
-                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none disabled:opacity-70"
+                disabled={enviando || pasoInvalido}
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {enviando ? "Guardando…" : paso === pasos.length - 1 ? "Ver mi siguiente paso" : "Continuar"}
+                {textoBoton}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
               </button>
             </div>
@@ -727,10 +1120,12 @@ export function FormationWizard({
 }
 
 function StepIndicator({
+  pasos,
   paso,
   maxPaso,
   onIr,
 }: {
+  pasos: readonly PasoAsistente[];
   paso: number;
   maxPaso: number;
   onIr: (i: number) => void;
@@ -814,7 +1209,7 @@ function Paso({
 }: {
   headingRef: React.RefObject<HTMLHeadingElement | null>;
   titulo: string;
-  texto: string;
+  texto: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -935,6 +1330,9 @@ function TextField({
   optional,
   type = "text",
   autoComplete,
+  placeholder,
+  maxLength = 200,
+  inputMode,
 }: {
   id: string;
   label: string;
@@ -944,6 +1342,9 @@ function TextField({
   optional?: boolean;
   type?: string;
   autoComplete?: string;
+  placeholder?: string;
+  maxLength?: number;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
   const errorId = useId();
   return (
@@ -957,8 +1358,10 @@ function TextField({
         data-campo={id}
         type={type}
         value={value}
-        maxLength={200}
+        maxLength={maxLength}
         autoComplete={autoComplete}
+        placeholder={placeholder}
+        inputMode={inputMode}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={!!error}
         aria-describedby={error ? errorId : undefined}
@@ -1081,8 +1484,10 @@ function Resultado({
         <p className="mt-4 max-w-xl text-arena/85">{planEncargo.incluye[0]}</p>
         <p className="mt-3 max-w-xl text-arena/70">{motivo}</p>
         <p className="mt-7 rounded-2xl bg-arena/10 p-4 text-sm text-arena/80">
-          <strong className="text-arena">Ya tenemos tu nombre y tu email:</strong> te escribimos para conocer
-          tu caso.
+          <strong className="text-arena">
+            {r.punto === "crear" ? "Ya tenemos tus datos de alta:" : "Ya tenemos tu nombre y tu email:"}
+          </strong>{" "}
+          te escribimos para conocer tu caso.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <CtaLink href={AGENDA_15MIN}>Agenda una llamada gratuita de 15 min</CtaLink>
@@ -1249,5 +1654,66 @@ function TarjetaPlan({ plan }: { plan: Plan }) {
         {plan.cta}
       </CtaLink>
     </article>
+  );
+}
+
+function pasoDeCampo(clave: string, esCrear: boolean): PasoId | undefined {
+  if (clave === "nombre") return esCrear ? "titular" : "contacto";
+  if (clave === "email") return esCrear ? "email" : "contacto";
+  if (clave === "telefono") return esCrear ? "telefono" : "contacto";
+  if (clave === "consentimiento") return esCrear ? "aceptacion" : "contacto";
+  return PASO_DE_CAMPO[clave];
+}
+
+function AreaTexto({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+  hint,
+  placeholder,
+  maxLength,
+  rows = 4,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+  hint?: React.ReactNode;
+  placeholder?: string;
+  maxLength: number;
+  rows?: number;
+}) {
+  const errorId = useId();
+  const hintId = useId();
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id} className="font-semibold">
+        {label}
+      </Label>
+      <textarea
+        id={id}
+        data-campo={id}
+        value={value}
+        rows={rows}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : hint ? hintId : undefined}
+        className="w-full rounded-2xl border border-tinta/15 bg-white px-4 py-3 text-base outline-none placeholder:text-muted-foreground focus-visible:border-chancla focus-visible:ring-3 focus-visible:ring-chancla/20 aria-invalid:border-destructive"
+      />
+      {error ? (
+        <FieldError id={errorId}>{error}</FieldError>
+      ) : (
+        hint && (
+          <p id={hintId} className="text-sm text-tinta/55" aria-live="polite">
+            {hint}
+          </p>
+        )
+      )}
+    </div>
   );
 }

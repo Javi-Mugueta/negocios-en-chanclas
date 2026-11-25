@@ -10,6 +10,8 @@ import {
   type Requisitos,
   type Tipo,
 } from "@/lib/asistente";
+import { FACTURACION, MENSAJES_ALTA, telefonoConPrefijo, validarAlta, type DatosAlta } from "@/lib/alta";
+import { CONSENTIMIENTO_VERSION } from "@/lib/privacidad";
 import { estadosConstitucion, PLANES_ASISTENTE } from "@/lib/site";
 import {
   ETIQUETA_PUNTO,
@@ -39,6 +41,7 @@ const cuerpo = z.object({
   sinNombre: z.unknown().optional(),
   plan: z.unknown().optional(),
   requisitos: z.unknown().optional(),
+  alta: z.unknown().optional(),
 });
 
 export type DatosLead = {
@@ -142,7 +145,6 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
   const tipo = texto(raw.tipo);
   const estado = texto(raw.estado);
   const otro = texto(raw.otroEstado);
-  const sinNombre = raw.sinNombre === true;
   const nombreLlc = texto(raw.nombreLLC);
   const requisitos = texto(raw.requisitos);
   const nombre = texto(raw.nombre);
@@ -171,20 +173,25 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
     estadoVisible = estado;
   }
 
-  const necesitaNombre = punto !== "crear" || !sinNombre;
-  if (necesitaNombre && (!nombreLlc || nombreLlc.length > 120)) {
-    errores.nombreLLC =
-      punto === "crear" ? "Escribe un nombre o marca que aún no lo tienes." : "Escribe el nombre de tu LLC.";
-  } else if (nombreLlc.length > 120) {
-    errores.nombreLLC = "El nombre es demasiado largo.";
+  // Crear: el nombre de la LLC sale de las opciones del alta y el teléfono es obligatorio.
+  const esAlta = punto === "crear";
+  let alta: DatosAlta | null = null;
+  if (esAlta) {
+    const resultado = validarAlta(raw.alta);
+    if ("errores" in resultado) Object.assign(errores, resultado.errores);
+    else alta = resultado.alta;
+    if (nombre.length < 3) errores.nombre = MENSAJES_ALTA.nombre;
+    if (!telefonoConPrefijo(texto(raw.telefono))) errores.telefono = MENSAJES_ALTA.telefono;
+  } else if (!nombreLlc || nombreLlc.length > 120) {
+    errores.nombreLLC = "Escribe el nombre de tu LLC.";
   }
 
-  if (!nombre || nombre.length > 120) errores.nombre = "Dinos cómo te llamas.";
+  if (!nombre || nombre.length > 120) errores.nombre ??= "Dinos cómo te llamas.";
   if (!email || email.length > 200 || !emailValido(email)) {
     errores.email = "Escribe un email válido.";
   }
   if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
-  const telefono = telefonoDe(raw.telefono, errores);
+  const telefono = esAlta ? texto(raw.telefono) : telefonoDe(raw.telefono, errores);
   if (Object.keys(errores).length) return { errores };
 
   const puntoOk = punto as Punto;
@@ -208,8 +215,7 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
         tipo: tipoOk,
         tipoEtiqueta: ETIQUETA_TIPO[tipoOk],
         estado: estadoVisible,
-        nombreLlc: necesitaNombre ? nombreLlc : null,
-        sinNombre: puntoOk === "crear" && sinNombre,
+        nombreLlc: alta ? alta.opcionesNombre[0] : nombreLlc,
         ...(requisitosOk
           ? {
               requisitos: requisitosOk,
@@ -219,6 +225,18 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
         caso,
         casoEtiqueta: ETIQUETA_CASO[caso],
         ...(plan ? { plan, planEtiqueta: PLANES_ASISTENTE[plan] } : {}),
+        ...(alta
+          ? {
+              alta: {
+                ...alta,
+                facturacionEtiqueta: FACTURACION[alta.facturacion],
+                // Sin almacenamiento de archivos: el pasaporte se pide después por email.
+                pasaporte: "pendiente",
+                terminosVersion: CONSENTIMIENTO_VERSION,
+              },
+              altaCompleta: true,
+            }
+          : {}),
       },
     },
   };
