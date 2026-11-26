@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { Eyebrow } from "@/components/brand/cta";
 import { FormulariosLlcForm } from "@/components/formularios-llc-form";
-import { contacto, formulariosLlc, requisitosFormularios } from "@/lib/site";
+import { enlaceContacto } from "@/lib/asistente";
+import { contacto, formularios1065, formulariosLlc, requisitosFormularios } from "@/lib/site";
 import { formulariosVisibles } from "@/lib/visibilidad";
 
 export const metadata: Metadata = {
@@ -35,6 +36,30 @@ export default async function FormulariosLlcPage() {
           {formulariosLlc.ejercicio}. Al final, pasarás a la pantalla de pago del servicio (
           {formulariosLlc.precio}).
         </p>
+        <p className="mt-3 max-w-2xl text-sm text-tinta/65">{formulariosLlc.alcance}</p>
+
+        {/* Selector de socios. El formulario del Form 1065 está por diseñar: varios socios va a contacto. */}
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <a
+            href="#formulario"
+            className="rounded-[1.5rem] border-2 border-chancla bg-white p-5 transition hover:shadow-md"
+          >
+            <span className="block font-display text-lg font-bold">Mi LLC tiene un socio</span>
+            <span className="mt-1 block text-sm text-tinta/70">
+              Formularios 1120/5472 · {formulariosLlc.precio}
+            </span>
+          </a>
+          <Link
+            href={enlaceContacto("en-regla", "Mi LLC tiene varios socios y necesito el Form 1065 + K-1.")}
+            className="rounded-[1.5rem] border-2 border-tinta/10 bg-white/60 p-5 transition hover:border-tinta/25 hover:bg-white"
+          >
+            <span className="block font-display text-lg font-bold">Tiene varios socios</span>
+            <span className="mt-1 block text-sm text-tinta/70">
+              {formularios1065.nombre} · {formularios1065.precio}. Plazo del IRS: 15 de marzo. Escríbenos y lo
+              preparamos contigo.
+            </span>
+          </Link>
+        </div>
 
         <div className="mt-10 rounded-[2rem] border-2 border-sol/70 bg-sol/15 p-6 sm:p-8">
           <div className="flex items-start gap-3">
@@ -77,7 +102,7 @@ export default async function FormulariosLlcPage() {
           </p>
         </div>
 
-        <div className="mt-10">
+        <div id="formulario" className="mt-10 scroll-mt-28">
           <FormulariosLlcForm />
         </div>
       </div>

@@ -290,24 +290,40 @@ export async function contadores(db: BaseDatos, ahora = new Date()): Promise<Con
   };
 }
 
-// Cada combinaci?n se cuenta una sola vez, aunque el endpoint de contacto acepte
-// tambi?n valores usados por formularios espec?ficos.
+// Cada combinación se cuenta una sola vez, aunque el endpoint de contacto acepte
+// también valores usados por formularios específicos.
 export const FUENTES = [
   ...SERVICIOS.map((servicio) => ({
     origen: "contacto" as const,
     servicio,
-    nombre: servicio === "encargo" ? "Encargo personalizado" : servicio === "formularios-llc" ? "Formularios LLC" : servicio === "cierre-llc" ? "Cierre de LLC" : `Contacto · ${ETIQUETA_SERVICIO[servicio]}`,
-    url: servicio === "encargo" ? "/contacto?servicio=encargo" : servicio === "formularios-llc" ? "/formularios-llc" : servicio === "cierre-llc" ? "/cierra-tu-llc" : `/contacto?servicio=${servicio}`,
+    nombre:
+      servicio === "encargo"
+        ? "Encargo personalizado (antiguo)"
+        : servicio === "formularios-llc"
+          ? "Formularios LLC"
+          : servicio === "cierre-llc"
+            ? "Cierre de LLC"
+            : `Contacto · ${ETIQUETA_SERVICIO[servicio]}`,
+    // El encargo personalizado ya no tiene formulario propio: llega a contacto como «Constituir una LLC».
+    url:
+      servicio === "encargo"
+        ? "/contacto?servicio=arranque"
+        : servicio === "formularios-llc"
+          ? "/formularios-llc"
+          : servicio === "cierre-llc"
+            ? "/cierra-tu-llc"
+            : `/contacto?servicio=${servicio}`,
   })),
-  ...[...new Set(Object.values(SERVICIO_POR_CASO))].map((servicio) => ({
+  ...[...new Set<string>(Object.values(SERVICIO_POR_CASO)), "encargo"].map((servicio) => ({
     origen: "empezar" as const,
     servicio,
-    nombre: `Asistente · ${ETIQUETA_SERVICIO[servicio]}`,
+    nombre: `Asistente · ${ETIQUETA_SERVICIO[servicio]}${servicio === "encargo" ? " (antiguo)" : ""}`,
     url: "/empezar",
   })),
 ];
 
-const SERVICIOS_CON_ALTA = new Set<string>([SERVICIO_POR_CASO.plan, SERVICIO_POR_CASO.encargo]);
+/** «encargo»: leads antiguos del asistente (otro estado o varios socios), que también traían el alta. */
+const SERVICIOS_CON_ALTA = new Set<string>([SERVICIO_POR_CASO.plan, SERVICIO_POR_CASO.varios, "encargo"]);
 
 /** El lead trae los datos de alta completos del asistente (leads antiguos: no). */
 export function tieneAltaCompleta(lead: Pick<Lead, "datos">): boolean {

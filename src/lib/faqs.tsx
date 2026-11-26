@@ -1,5 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { dolares, LISTA_ESTADOS_CON_TASA, LISTA_ESTADOS_LLC, PLANES_APERTURA, RENOVACION } from "@/lib/precios";
+import { AVISO_PLAZO } from "@/lib/site";
+
+const ESTADOS_O = LISTA_ESTADOS_LLC.replace(" y ", " o ");
 
 export type Faq = { q: string; a: ReactNode };
 
@@ -100,10 +104,26 @@ export const faqs: Faq[] = [
   {
     q: "¿Trabajáis con LLC de cualquier estado?",
     a: (
-      <p>
-        Sí. Nuestro formulario acepta LLC de New Mexico, Wyoming, Delaware y la mayoría de estados.
-        Si el tuyo no aparece, pregúntanos.
-      </p>
+      <>
+        <p>Depende del servicio:</p>
+        <Lista
+          items={[
+            <>
+              <strong>Abrir una LLC:</strong> la constituimos en {ESTADOS_O}. En Nuevo México la tasa del estado
+              está incluida; en los demás se suma al precio del plan. ¿Otro estado?{" "}
+              <Link href="/contacto?servicio=arranque">Escríbenos</Link> y lo valoramos.
+            </>,
+            <>
+              <strong>Formularios anuales 1120/5472:</strong> de cualquier estado, por el mismo precio. Son
+              formularios federales.
+            </>,
+            <>
+              <strong>Cerrar una LLC:</strong> de los mismos 7 estados, con la tasa de disolución de cada estado.
+              Si es de otro estado, <Link href="/contacto?servicio=cierre">escríbenos</Link>.
+            </>,
+          ]}
+        />
+      </>
     ),
   },
   {
@@ -120,8 +140,10 @@ export const faqs: Faq[] = [
     q: "¿Cuánto cuesta abrir una LLC?",
     a: (
       <p>
-        Con nosotros, puedes tener el plan más básico por 397$ el primer año con tu LLC completa
-        (después, la renovación es de 197$ al año). A partir de ahí, en nuestra web encontrarás
+        Con nosotros, puedes tener el plan más básico por {dolares(PLANES_APERTURA.basico.precio)} el primer
+        año con tu LLC completa en Nuevo México, con la tasa del estado incluida. En {LISTA_ESTADOS_CON_TASA} se
+        suma la tasa de cada estado. Después, la renovación es de {dolares(RENOVACION)} al año más la tasa
+        anual del estado, si la tiene (en Nuevo México no hay). A partir de ahí, en nuestra web encontrarás
         propuestas más ambiciosas y completas. Tú eliges.
       </p>
     ),
@@ -195,11 +217,13 @@ export const faqs: Faq[] = [
   {
     q: "¿Cuánto se tarda en tener la LLC operativa?",
     a: (
-      <p>
-        Entre 20 y 25 días naturales desde que nos pasas los datos hasta que tienes la LLC
-        constituida y el EIN asignado. A partir de ahí puedes abrir la cuenta bancaria y empezar a
-        facturar.
-      </p>
+      <>
+        <p>
+          Aproximadamente 20 días desde que nos pasas los datos hasta que tienes la LLC constituida y el
+          EIN asignado. A partir de ahí puedes abrir la cuenta bancaria y empezar a facturar.
+        </p>
+        <p className="mt-2 text-sm italic">{AVISO_PLAZO}</p>
+      </>
     ),
   },
   {
@@ -209,7 +233,7 @@ export const faqs: Faq[] = [
       // (correcciones-web-nec.md, sección 3).
       <Lista
         items={[
-          "Constitución de la LLC en Nuevo México. Si la quieres en otro estado, lo vemos en el encargo personalizado.",
+          `Constitución de la LLC en ${ESTADOS_O} (fuera de Nuevo México se suma la tasa del estado). Si la quieres en otro estado, escríbenos.`,
           "Obtención del EIN, el número fiscal de la empresa.",
           "Registered agent durante el primer año.",
           "Operating Agreement (modelo estándar).",

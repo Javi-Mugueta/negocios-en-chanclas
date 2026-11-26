@@ -23,6 +23,7 @@ const CAMPOS: Record<string, string> = {
   requisitosEtiqueta: "Requisitos de Formularios LLC",
   casoEtiqueta: "Resultado del asistente",
   planEtiqueta: "Plan elegido",
+  precio: "Precio",
 };
 
 /** Datos de alta del asistente (crear LLC): orden y etiquetas de la ficha. */
@@ -61,15 +62,28 @@ const CAMPOS_CIERRE: [string, string][] = [
   ["ein", "EIN"],
   ["fechaConstitucion", "Fecha de constitución"],
   ["socios", "Número de socios"],
+  ["activa", "Activa en el estado (no disuelta ni «delinquent»)"],
   ["formulariosPrevios", "1120/5472 de años anteriores presentados"],
-  ["agenteAlDia", "Registered agent e informe anual al día"],
+  ["agenteAlDia", "Registered agent, tasas e informes anuales al día"],
   ["cuentas", "Cuentas abiertas"],
   ["cuando", "Cuándo quiere cerrarla"],
 ];
 
 const CHECKS_CIERRE: [string, string][] = [
   ["datosCorrectos", "Los datos son correctos y completos y soy el responsable de su veracidad"],
-  ["aceptaPrecio", "Entiendo que el precio es 467 $ más las tasas del estado"],
+  ["confirmaAlDia", "Confirmo que mi LLC está al día"],
+  ["aceptaPrecio", "Entiendo el precio (cierre + tasa de disolución del estado)"],
+];
+
+/** Datos de alta de una LLC de varios socios: orden y etiquetas de la ficha. */
+const CAMPOS_ALTA_SOCIOS: [string, string][] = [
+  ["interlocutorNombre", "Persona de contacto"],
+  ["gestionEtiqueta", "Quién decide el día a día"],
+  ["repartoEtiqueta", "Reparto de beneficios"],
+  ["repartoOtro", "Reparto acordado"],
+  ["direccion", "Dirección de la persona de contacto"],
+  ["actividad", "Resumen de la actividad"],
+  ["facturacionEtiqueta", "Facturación anual media esperada (2 primeros años)"],
 ];
 
 const CHECKS_FORMULARIOS: [string, string][] = [
@@ -189,8 +203,7 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                 ))}
               </dl>
               <p className="mt-4 text-xs text-tinta/55">
-                El pago (169 $) se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la
-                referencia {lead.id}.
+                {textoPago(lead)}
               </p>
             </section>
           )}
@@ -208,17 +221,18 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                 ))}
               </dl>
               <p className="mt-4 text-xs text-tinta/55">
-                El pago (467 $) se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la
-                referencia {lead.id}.
+                {textoPago(lead)}
               </p>
             </section>
           )}
 
           {alta && (
             <section className="rounded-[1.5rem] border border-tinta/10 bg-card p-5">
-              <h2 className="text-lg font-bold">Datos de alta de la LLC</h2>
+              <h2 className="text-lg font-bold">
+                {Array.isArray(alta.datos.socios) ? "Datos de alta de la LLC de varios socios" : "Datos de alta de la LLC"}
+              </h2>
               <dl className="mt-4 space-y-3 text-sm">
-                <Fila k="Titular" v={lead.nombre} />
+                <Fila k={Array.isArray(alta.datos.socios) ? "Persona de contacto" : "Titular"} v={lead.nombre} />
                 <Fila k="Email de contacto" v={lead.email} />
                 <Fila k="Teléfono" v={lead.telefono ?? "—"} />
                 <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -235,7 +249,25 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                     )}
                   </dd>
                 </div>
-                {CAMPOS_ALTA.map(([clave, etiqueta]) => {
+                {Array.isArray(alta.datos.socios) && (
+                  <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                    <dt className="text-tinta/50">Socios ({alta.datos.socios.length})</dt>
+                    <dd>
+                      <ol className="list-decimal space-y-1 pl-5">
+                        {alta.datos.socios.map((socio, i) => (
+                          <li key={i} className="break-words">{lineaSocio(socio)}</li>
+                        ))}
+                      </ol>
+                    </dd>
+                  </div>
+                )}
+                {Array.isArray(alta.datos.socios) && Array.isArray(alta.datos.gestores) && alta.datos.gestores.length > 0 && (
+                  <Fila k="Gestores" v={alta.datos.gestores.map(String).join(", ")} />
+                )}
+                {Array.isArray(alta.datos.socios) && (
+                  <Fila k="Pacto de salida" v={alta.datos.pactoSalida === true ? "Sí, quieren pactar algo especial" : "No"} />
+                )}
+                {(Array.isArray(alta.datos.socios) ? CAMPOS_ALTA_SOCIOS : CAMPOS_ALTA).map(([clave, etiqueta]) => {
                   const valor = alta.datos[clave];
                   return (
                     <div key={clave} className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -249,8 +281,11 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                   v={alta.datos.aceptaTerminos === true ? `Aceptados · versión ${String(alta.datos.terminosVersion ?? "—")}` : "No"}
                 />
               </dl>
-              {lead.datos.tipo !== "llc-1" && (
+              {lead.datos.tipo !== "llc-1" && !Array.isArray(alta.datos.socios) && (
                 <p className="mt-4 text-xs text-tinta/55">Hay más socios: faltan sus datos.</p>
+              )}
+              {(lead.datos.caso === "plan" || lead.datos.caso === "varios") && (
+                <p className="mt-4 text-xs text-tinta/55">{textoPago(lead)}</p>
               )}
             </section>
           )}
@@ -348,4 +383,30 @@ function datosAlta(datos: Record<string, unknown>) {
     ? registro.opcionesNombre.filter((o): o is string => typeof o === "string")
     : [];
   return { datos: registro, opciones };
+}
+
+/** Una línea por socio en la ficha. */
+function lineaSocio(socio: unknown): string {
+  if (!socio || typeof socio !== "object") return String(socio ?? "—");
+  const s = socio as Record<string, unknown>;
+  return [
+    s.nombre,
+    s.email,
+    s.paisResidencia ? `reside en ${String(s.paisResidencia)}` : null,
+    s.nacionalidad ? `nacionalidad ${String(s.nacionalidad)}` : null,
+    s.porcentaje != null ? `${String(s.porcentaje).replace(".", ",")} %` : null,
+    s.tipoEtiqueta ?? s.tipo,
+  ]
+    .filter((v) => v != null && v !== "")
+    .map(String)
+    .join(" · ");
+}
+
+/** Cómo se cruza el pago: Stripe con la referencia o, sin enlace para ese importe, enlace enviado a mano. */
+function textoPago(lead: Lead): string {
+  const precio = typeof lead.datos.precio === "string" ? ` ${lead.datos.precio}.` : "";
+  if (lead.datos.pagoOnline === false) {
+    return `Precio:${precio} Este importe no tiene enlace de Stripe: envía al cliente el enlace de pago a mano con la referencia ${lead.id}.`;
+  }
+  return `${precio ? `Precio:${precio} ` : ""}El pago se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la referencia ${lead.id}.`;
 }

@@ -40,11 +40,11 @@ export const ETIQUETA_SERVICIO: Record<string, string> = {
   "formularios-llc": "Formularios LLC 2026",
   encargo: "Encargo personalizado",
   cierre: "Cerrar la LLC",
-  "cierre-llc": "Cierre de LLC (467 $)",
+  "cierre-llc": "Cierre de LLC (/cierra-tu-llc)",
   corporacion: "Corporación (C-Corp)",
   "cambio-titularidad": "Cambio de titularidad",
   "operating-agreement": "Operating Agreement personalizado",
-  "operaciones-societarias": "Operaciones societarias (M&A)",
+  "operaciones-societarias": "Operaciones societarias en USA",
   web: "Web, tienda o SEO",
   otra: "Otra consulta",
 };

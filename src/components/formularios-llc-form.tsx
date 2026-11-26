@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ArrowRight, CreditCard, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { Confirmacion } from "@/components/confirmacion";
 import { Honeypot } from "@/components/honeypot";
 import { claseSelect } from "@/components/select-class";
 import { Input } from "@/components/ui/input";
@@ -134,7 +135,13 @@ export function FormulariosLlcForm() {
           <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </a>
         {emailPago && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(emailPago)}</p>}
-        <p className="mt-6 max-w-xl text-sm text-arena/65">{formulariosLlc.avisoPago}</p>
+        <p className="mt-3 max-w-xl text-sm text-arena/75">{formulariosLlc.alcance}</p>
+        <p className="mt-3 max-w-xl text-sm text-arena/65">{formulariosLlc.avisoPago}</p>
+        <Confirmacion
+          oscuro
+          className="mt-8 border-t border-arena/15 pt-6"
+          queAhora="Cuando pagues, preparamos tus formularios y te los enviamos para revisar antes de presentarlos."
+        />
       </div>
     );
   }
@@ -322,8 +329,8 @@ export function FormulariosLlcForm() {
         <p className="mt-4 flex items-start gap-2 text-sm text-tinta/65">
           <Lock className="mt-0.5 size-4 shrink-0 text-chancla-2" aria-hidden="true" />
           <span>
-            Al continuar guardamos tus datos y te llevamos a la pantalla de pago ({formulariosLlc.precio}).{" "}
-            {formulariosLlc.avisoPago}
+            {formulariosLlc.alcance} Al continuar guardamos tus datos y te llevamos a la pantalla de pago (
+            {formulariosLlc.precio}). {formulariosLlc.avisoPago}
           </span>
         </p>
       </div>

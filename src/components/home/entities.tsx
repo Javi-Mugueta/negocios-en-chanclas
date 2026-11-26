@@ -1,5 +1,6 @@
 import { Eyebrow, CtaLink } from "@/components/brand/cta";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TEXTOS_PRECIO } from "@/lib/precios";
 import { cn } from "@/lib/utils";
 
 type Entidad = {
@@ -46,7 +47,10 @@ const entidades: Entidad[] = [
         k: "Qué presentar cada año",
         v: "Depende de cómo esté estructurada y de dónde residáis. Lo revisamos contigo antes de empezar.",
       },
-      { k: "Con nosotros", v: "La constituimos con vosotros y os acompañamos en lo que toque presentar cada año." },
+      {
+        k: "Con nosotros",
+        v: `La abrimos online, de 2 a 10 socios, con un Operating Agreement modelo para varios socios: ${TEXTOS_PRECIO.variosSocios} (en Nuevo México, incluida).`,
+      },
     ],
   },
   {
@@ -116,13 +120,20 @@ export function Entities() {
                     </h3>
                     <p className="mt-4 text-arena/75">{e.resumen}</p>
                   </div>
-                  <CtaLink
-                    href={e.id === "corp" ? "/contacto?servicio=corporacion" : "/como-funciona-una-llc"}
-                    variant="light"
-                    className="self-start"
-                  >
-                    {e.id === "corp" ? "Contactar para una C-Corp" : "Entender la LLC"}
-                  </CtaLink>
+                  <div className="flex flex-wrap gap-3">
+                    <CtaLink
+                      href={e.id === "corp" ? "/contacto?servicio=corporacion" : "/como-funciona-una-llc"}
+                      variant="light"
+                      className="self-start"
+                    >
+                      {e.id === "corp" ? "Contactar para una C-Corp" : "Entender la LLC"}
+                    </CtaLink>
+                    {e.id === "llc-multi" && (
+                      <CtaLink href="/empezar?tipo=llc-2" className="self-start">
+                        Empezar
+                      </CtaLink>
+                    )}
+                  </div>
                 </div>
                 <dl className="divide-y divide-tinta/10 lg:col-span-7">
                   {e.filas.map((f) => (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Eyebrow } from "@/components/brand/cta";
 import { ComplementaryServices } from "@/components/complementary-services";
 import { PlanCards } from "@/components/plan-cards";
+import { ESTADOS_LLC } from "@/lib/precios";
 
 export function Packages() {
   return (
@@ -13,8 +14,8 @@ export function Packages() {
             Elige cómo abrimos <span className="font-serif font-normal italic">tu empresa.</span>
           </h2>
           <p className="mt-5 text-lg text-tinta/70">
-            Dos planes para constituir tu LLC y un encargo a medida para los casos que piden sentarse
-            contigo.
+            Dos planes para constituir tu LLC en {ESTADOS_LLC.length} estados y un encargo a medida para los
+            casos que piden sentarse contigo.
           </p>
         </div>
 

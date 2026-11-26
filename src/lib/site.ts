@@ -5,6 +5,18 @@
  * Para cambiarlos, actualiza `visible` y los dígitos de `href` (wa.me, sin + ni espacios).
  */
 
+import {
+  dolares,
+  enlacePago,
+  FORMULARIOS_1120,
+  LISTA_ESTADOS_CON_TASA,
+  LISTA_ESTADOS_LLC,
+  PLANES_APERTURA,
+  RENOVACION,
+  TEXTOS_PRECIO,
+  type PlanApertura,
+} from "@/lib/precios";
+
 export const contacto = {
   direccion: ["500 4th St NW, Suite 102 #1272", "Albuquerque, New Mexico 87102", "EE. UU."],
   whatsapp: {
@@ -70,48 +82,44 @@ export type Plan = {
   cta: string;
   /** Adónde lleva el botón de la tarjeta de la home. */
   href: string;
-  /** Enlace de Stripe que se abre al final del alta (solo planes Básico y Estándar). */
-  pago?: string;
 };
 
-const incluyeBasico = [
-  "Registro de la LLC en el Estado de Nuevo México",
+export const incluyeApertura = [
+  `Registro de la LLC en ${LISTA_ESTADOS_LLC.replace(" y ", " o ")}`,
   "Agente registrador y dirección postal durante 1 año",
   "EIN express (48 h)",
   "Operating Agreement (modelo estándar)",
   "Entrega vía email",
 ];
 
-const avisoRenovacion = "*Renovación anual: 197 $/año a partir del segundo año.";
+const avisoPlanes = `*En Nuevo México, tasa del estado incluida. En ${LISTA_ESTADOS_CON_TASA} se suma la tasa del estado. Renovación anual: ${dolares(RENOVACION)}/año + tasa anual del estado (en Nuevo México, sin tasa) a partir del segundo año.`;
 
-/** Propuesta comercial: constitución de la LLC. */
+/** Propuesta comercial: constitución de la LLC. Precio «desde» = Nuevo México. */
 export const planes: Plan[] = [
   {
     id: "basico",
     servicio: "Constitución de tu LLC",
-    nombre: "Plan Básico",
+    nombre: PLANES_APERTURA.basico.nombre,
     lema: "Rápida, sencilla y autogestionada",
-    precio: "397 $",
+    precio: `Desde ${dolares(PLANES_APERTURA.basico.precio)}`,
     precioNota: "(primer año)*",
-    aviso: avisoRenovacion,
-    incluye: incluyeBasico,
+    aviso: avisoPlanes,
+    incluye: incluyeApertura,
     cta: "Empezar con el Plan Básico",
     href: "/empezar?plan=basico",
-    pago: "https://buy.stripe.com/7sY00j1KN2Ru8fp1NVcV22n",
   },
   {
     id: "estandar",
     servicio: "Constitución de tu LLC",
-    nombre: "Plan Estándar",
+    nombre: PLANES_APERTURA.estandar.nombre,
     lema: "Rápida, sencilla y con acompañamiento",
-    precio: "497 $",
+    precio: `Desde ${dolares(PLANES_APERTURA.estandar.precio)}`,
     precioNota: "(primer año)*",
-    aviso: avisoRenovacion,
+    aviso: "*Igual que el Plan Básico.",
     destacado: true,
-    incluye: [...incluyeBasico, "Consultoría de 45 min en la que resolvemos 1 a 1 tus dudas"],
+    incluye: [...incluyeApertura, "Consultoría de 45 min en la que resolvemos 1 a 1 tus dudas"],
     cta: "Empezar con el Plan Estándar",
     href: "/empezar?plan=estandar",
-    pago: "https://buy.stripe.com/3cI8wP3SV2Ru7bl2RZcV22o",
   },
   {
     id: "encargo",
@@ -120,29 +128,47 @@ export const planes: Plan[] = [
     lema: "Si necesitas que un experto de verdad se siente contigo",
     precio: "Precio por encargo",
     incluye: [
-      "Para personas que quieran abrir una LLC de dos o más miembros, en otros estados, que quieran abrir una C-Corp o que tengan una situación más compleja.",
+      "Para personas que quieran abrir una LLC en otro estado, una C-Corp o que tengan una situación más compleja.",
     ],
     cta: "Quiero un encargo personalizado",
-    href: "/contacto?servicio=encargo",
+    href: "/contacto?servicio=arranque",
   },
 ];
 
-export const PLANES_ASISTENTE = {
-  basico: "Plan Básico (397 $ primer año)",
-  estandar: "Plan Estándar (497 $ primer año)",
-} as const;
-export type PlanAsistente = keyof typeof PLANES_ASISTENTE;
+/** Plan elegido en la home (`/empezar?plan=`). */
+export const PLANES_ASISTENTE: Record<PlanApertura, string> = {
+  basico: PLANES_APERTURA.basico.nombre,
+  estandar: PLANES_APERTURA.estandar.nombre,
+};
+export type PlanAsistente = PlanApertura;
+
+/** Plazo de apertura y cierre: nunca una fecha comprometida. */
+export const PLAZO = "aproximadamente 20 días";
+export const AVISO_PLAZO =
+  "Este plazo es orientativo: puede variar por periodos vacacionales y festivos en Estados Unidos.";
+
+const AVISO_LEAVING =
+  "El pago se realizará a Leaving Vorkuta LLC directamente a través de Stripe, mercantil responsable de la prestación del servicio.";
 
 /** Formularios LLC del ejercicio 2026. */
 export const formulariosLlc = {
   ejercicio: 2026,
   nombre: "Formularios anuales 1120/5472",
-  precio: "169 $",
+  precio: dolares(FORMULARIOS_1120),
   descripcion:
     "Si tu LLC es de un solo socio y no resides en EE. UU., cada año tienes que presentar al IRS el formulario 5472 junto a un 1120 pro forma. Nos pasas los datos y los movimientos del año, los preparamos y los presentamos por ti.",
-  pago: "https://buy.stripe.com/dRm00j7572Ru0MX2RZcV22k",
-  avisoPago:
-    "El pago se realizará a Leaving Vorkuta LLC directamente a través de Stripe, mercantil responsable de la prestación del servicio.",
+  /** Mismo precio en cualquier estado: son formularios federales. */
+  alcance:
+    "Incluye la preparación y presentación de los formularios federales 1120 y 5472 ante el IRS, sea cual sea el estado de tu LLC. No incluye las obligaciones de tu estado (informe anual, franchise tax u otras), que son aparte.",
+  pago: enlacePago("formularios", FORMULARIOS_1120)!,
+  avisoPago: AVISO_LEAVING,
+};
+
+/** Formularios de varios socios (Form 1065 + K-1). El formulario de datos está por diseñar: va por contacto. */
+export const formularios1065 = {
+  nombre: "Form 1065 + K-1 (LLC de varios socios)",
+  precio: TEXTOS_PRECIO.formularios1065,
+  texto: `Si tu LLC tiene varios socios, cada año presenta ante el IRS el Form 1065 y un K-1 por socio (antes del 15 de marzo). Te lo preparamos y presentamos: ${TEXTOS_PRECIO.formularios1065}, sea cual sea el estado.`,
 };
 
 /** Requisitos para contratar Formularios LLC (disclaimer de /formularios-llc). */
@@ -154,14 +180,18 @@ export const requisitosFormularios = [
   "No has recibido ninguna carta o multa de la IRS que haya que tener en cuenta.",
 ];
 
-/** Cierre de LLC (/cierra-tu-llc). Solo Wyoming y Nuevo México, un socio. */
+/** Cierre de LLC (/cierra-tu-llc): los 7 estados, un socio y solo LLC al día. */
 export const cierreLlc = {
-  precio: "467 $",
-  precioCompleto: "467 $ + tasas del estado",
-  pago: "https://buy.stripe.com/cNibJ1757gIk67h2RZcV22p",
-  avisoPago:
-    "El pago se realizará a Leaving Vorkuta LLC directamente a través de Stripe, mercantil responsable de la prestación del servicio. Con el pago aceptamos tu encargo: cerramos tu LLC en un máximo de 30 días naturales (sin contar festivos) y te enviamos toda la documentación.",
+  precioCompleto: TEXTOS_PRECIO.cierre,
+  avisoPago: `${AVISO_LEAVING} Con el pago aceptamos tu encargo: cerramos tu LLC en ${PLAZO} y te enviamos toda la documentación. ${AVISO_PLAZO}`,
+  avisoAlDia:
+    "Este servicio es solo para LLC que estén al día: no disueltas administrativamente ni en situación de «delinquent», y sin declaraciones al IRS ni tasas del estado pendientes. Si tu LLC no está al día o tienes dudas, escríbenos antes y lo vemos contigo.",
+  avisoTexas:
+    "En Texas, antes de cerrar hay que presentar el informe final de franchise tax y pedir al Comptroller un certificado de cuenta al día. El plazo puede ser mayor.",
 };
+
+/** Aviso del pago a Leaving Vorkuta LLC (apertura). */
+export const avisoPagoApertura = AVISO_LEAVING;
 
 /**
  * Enlace de pago de Stripe unido a la ficha guardada: `client_reference_id` (id del lead)
@@ -188,10 +218,11 @@ export const avisosContacto: Partial<Record<string, { titulo: string; texto: str
     texto:
       "Antes de darte precio necesitamos analizar tu caso de forma personalizada: socios, inversión, acciones y dónde vas a operar. Cuéntanos tu proyecto y te escribimos para verlo contigo.",
   },
-  encargo: {
+  // Encargo personalizado (regla 2). Ya no menciona las LLC de varios socios: se encargan online.
+  arranque: {
     titulo: "Tu caso necesita un análisis personalizado.",
     texto:
-      "Las LLC de varios socios o en otros estados, las C-Corp y las situaciones más complejas las estudiamos contigo antes de darte precio. Cuéntanos tu caso y te escribimos.",
+      "Las LLC en otros estados, las C-Corp y las situaciones más complejas las estudiamos contigo antes de darte precio. Cuéntanos tu caso y te escribimos.",
   },
 };
 
@@ -211,8 +242,8 @@ export const serviciosComplementarios = [
     id: "multi-member",
     nombre: "LLC con varios socios",
     texto: "Multi-member: la empresa es de más de un socio. Dejamos claras las reglas desde el primer día.",
-    href: "/contacto?servicio=arranque",
-    cta: "Preguntar",
+    href: "/empezar?tipo=llc-2",
+    cta: "Empezar",
   },
   {
     id: "banco",
