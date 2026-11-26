@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { leerAtribucion } from "@/lib/atribucion";
 import {
+  avisoEmailPago,
   contacto,
+  enlaceStripe,
   estadosConstitucionDestacados,
   estadosConstitucionResto,
   formulariosLlc,
@@ -33,17 +35,13 @@ function formatoEin(valor: string): string {
   return cifras.length > 2 ? `${cifras.slice(0, 2)}-${cifras.slice(2)}` : cifras;
 }
 
-function enlacePago(id: string | null): string {
-  if (!id) return formulariosLlc.pago;
-  return `${formulariosLlc.pago}?client_reference_id=${encodeURIComponent(id)}`;
-}
-
 export function FormulariosLlcForm() {
   const [estado, setEstado] = useState<Estado>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState("");
   const [ein, setEin] = useState("");
   const [referencia, setReferencia] = useState<string | null>(null);
+  const [emailPago, setEmailPago] = useState("");
   const pagoRef = useRef<HTMLHeadingElement>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -103,6 +101,7 @@ export function FormulariosLlcForm() {
         return;
       }
       setReferencia(json.id ?? null);
+      setEmailPago(valor("email").trim().toLowerCase());
       setEstado("pago");
       form.reset();
       setEin("");
@@ -128,12 +127,13 @@ export function FormulariosLlcForm() {
           {formulariosLlc.precio} con tarjeta en Stripe.
         </p>
         <a
-          href={enlacePago(referencia)}
+          href={enlaceStripe(formulariosLlc.pago, { id: referencia, email: emailPago })}
           className="group mt-8 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none sm:w-auto"
         >
           Pagar {formulariosLlc.precio}
           <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </a>
+        {emailPago && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(emailPago)}</p>}
         <p className="mt-6 max-w-xl text-sm text-arena/65">{formulariosLlc.avisoPago}</p>
       </div>
     );

@@ -17,7 +17,7 @@ import {
   validarAlta,
   type BorradorAlta,
 } from "@/lib/alta";
-import { estadosConstitucion, navegacion, planes } from "@/lib/site";
+import { avisoEmailPago, avisosContacto, enlaceStripe, estadosConstitucion, navegacion, planes } from "@/lib/site";
 import { formulariosAbiertos, leerLanzamiento } from "@/lib/visibilidad";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
@@ -239,13 +239,35 @@ describe("contenido", () => {
     expect(estadosConstitucion.slice(0, 3)).toEqual(["New Mexico", "Wyoming", "Delaware"]);
   });
 
-  test("los planes Básico y Estándar pagan en Stripe e incluyen el Operating Agreement", () => {
+  test("los planes Básico y Estándar pasan por el asistente, pagan al final en Stripe e incluyen el Operating Agreement", () => {
     for (const id of ["basico", "estandar"]) {
       const plan = planes.find((p) => p.id === id)!;
-      expect(plan.href).toMatch(/^https:\/\/buy\.stripe\.com\//);
+      expect(plan.href).toBe(`/empezar?plan=${id}`);
+      expect(plan.pago).toMatch(/^https:\/\/buy\.stripe\.com\//);
       expect(plan.incluye).toContain("Operating Agreement (modelo estándar)");
       expect(plan.aviso).toBe("*Renovación anual: 197 $/año a partir del segundo año.");
     }
+    expect(planes.find((p) => p.id === "encargo")!.href).toBe("/contacto?servicio=encargo");
+  });
+
+  test("todo enlace de Stripe lleva client_reference_id y prefilled_email codificado", () => {
+    const base = "https://buy.stripe.com/abc";
+    const id = "00000000-0000-4000-8000-000000000001";
+    const url = new URL(enlaceStripe(base, { id, email: " ana+llc@example.com " }));
+    expect(url.origin + url.pathname).toBe(base);
+    expect(url.searchParams.get("client_reference_id")).toBe(id);
+    expect(url.searchParams.get("prefilled_email")).toBe("ana+llc@example.com");
+    expect(enlaceStripe(base, { id, email: "ana+llc@example.com" })).toContain("prefilled_email=ana%2Bllc%40example.com");
+    expect(enlaceStripe(base, { id: null, email: "" })).toBe(base);
+    expect(avisoEmailPago("ana@example.com")).toBe(
+      "Usa en Stripe el mismo email que nos has dado (ana@example.com). Así unimos tu pago con tus datos.",
+    );
+  });
+
+  test("contacto muestra aviso para C-Corp y encargo personalizado", () => {
+    expect(avisosContacto.corporacion?.titulo).toBe("Una C-Corp es una estructura compleja.");
+    expect(avisosContacto.encargo?.titulo).toBe("Tu caso necesita un análisis personalizado.");
+    expect(avisosContacto["en-regla"]).toBeUndefined();
   });
 });
 
@@ -263,11 +285,12 @@ describe("datos de alta del asistente", () => {
     consentimiento: true,
   };
 
-  test("crear añade los 10 pasos de alta después de punto, tipo y estado; el resto no cambia", () => {
+  test("crear añade los 9 pasos de alta después de punto, tipo y estado (sin pasaporte); el resto no cambia", () => {
     const crear = pasosDe("crear").map((p) => p.id);
     expect(crear.slice(0, 3)).toEqual(["punto", "tipo", "estado"]);
     expect(crear.slice(3)).toEqual(PASOS_ALTA.map((p) => p.id));
-    expect(crear).toHaveLength(13);
+    expect(crear).toHaveLength(12);
+    expect(crear).not.toContain("pasaporte");
     expect(crear.filter((id) => id === "email")).toHaveLength(1);
     expect(pasosDe("anual").map((p) => p.id)).toEqual(["punto", "tipo", "estado", "nombre", "contacto"]);
     expect(pasosDe(null)).toHaveLength(5);
@@ -288,8 +311,7 @@ describe("datos de alta del asistente", () => {
       consentimiento: false,
     };
     const conError = PASOS_ALTA.filter(({ id }) => Object.keys(erroresPasoAlta(id, vacio)).length > 0).map((p) => p.id);
-    // El pasaporte es opcional: el único paso que se puede saltar.
-    expect(conError).toEqual(PASOS_ALTA.map((p) => p.id).filter((id) => id !== "pasaporte"));
+    expect(conError).toEqual(PASOS_ALTA.map((p) => p.id));
     expect(erroresPasoAlta("aceptacion", { ...borrador, consentimiento: false })).toHaveProperty("consentimiento");
     expect(erroresPasoAlta("aceptacion", { ...borrador, aceptaTerminos: false })).toHaveProperty("aceptaTerminos");
   });
@@ -355,12 +377,13 @@ describe("datos de alta del asistente", () => {
             opcionesNombre: ALTA_OK.opcionesNombre,
             facturacion: "25k-50k",
             facturacionEtiqueta: "Entre 25.000 $ y 50.000 $",
-            pasaporte: "pendiente",
             aceptaTerminos: true,
           },
         },
       },
     });
+    // En la apertura no se pide pasaporte.
+    if ("datos" in bueno) expect(bueno.datos.datos.alta).not.toHaveProperty("pasaporte");
   });
 
   test("«ya tengo LLC» sigue igual: sin alta y con teléfono opcional", () => {

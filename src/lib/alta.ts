@@ -28,7 +28,6 @@ export const PASOS_ALTA = [
   { id: "telefono", label: "Teléfono" },
   { id: "direccion", label: "Dirección" },
   { id: "actividad", label: "Actividad" },
-  { id: "pasaporte", label: "Pasaporte" },
   { id: "pais", label: "País de residencia" },
   { id: "facturacion", label: "Facturación" },
   { id: "aceptacion", label: "Aceptación" },
@@ -143,8 +142,6 @@ export function erroresPasoAlta(paso: PasoAlta, a: BorradorAlta): Record<string,
       if (t.length < MIN_ACTIVIDAD || t.length > MAX_ACTIVIDAD) e.actividad = MSG.actividad;
       break;
     }
-    case "pasaporte":
-      break;
     case "pais": {
       const p = a.paisResidencia.trim();
       if (p.length < 2 || p.length > 80) e.paisResidencia = MSG.paisResidencia;

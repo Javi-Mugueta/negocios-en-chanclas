@@ -111,7 +111,8 @@ export const faqs: Faq[] = [
     a: (
       <p>
         Sí. Una C-Corp tributa por sí misma en EE. UU. (21 % federal) y presenta un 1120 completo,
-        con el 5472 si tiene socios extranjeros. Escríbenos y valoramos tu situación concreta.
+        con el 5472 si tiene socios extranjeros.{" "}
+        <Link href="/contacto?servicio=corporacion">Escríbenos</Link> y valoramos tu situación concreta.
       </p>
     ),
   },

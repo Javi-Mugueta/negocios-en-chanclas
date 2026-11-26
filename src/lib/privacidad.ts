@@ -10,6 +10,5 @@ export const PAGINAS_PUBLICAS = [
   "/servicios",
   "/formularios-llc",
   "/cierra-tu-llc",
-  "/encargo-personalizado",
   "/contacto",
 ] as const;

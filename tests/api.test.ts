@@ -438,6 +438,9 @@ test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
     }),
   );
   expect(res.status).toBe(200);
+  // El id vuelve al asistente para el client_reference_id de Stripe.
+  const cuerpo = (await res.json()) as { ok: boolean; id: string };
+  expect(cuerpo.id).toMatch(/^[0-9a-f-]{36}$/);
   const filas = await estado.db!.query("select datos from nec.leads");
   const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
   expect(datos.plan).toBe("estandar");
@@ -453,7 +456,7 @@ test("fuentes incluye combinaciones vacías y cuenta por origen y servicio en ho
   const fuentes = await contadoresFuentes(db, new Date("2026-11-25T12:00:00Z"));
   expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "en-regla")).toMatchObject({ total: 1, hoy: 1, semana: 1 });
   expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "en-regla")).toMatchObject({ total: 0, hoy: 0, semana: 0 });
-  expect(fuentes.find((f) => f.servicio === "encargo")?.url).toBe("/encargo-personalizado");
+  expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "encargo")?.url).toBe("/contacto?servicio=encargo");
   const filtros = filtrosDesdeUrl(new URL("https://negociosenchanclas.com/panel?origen=empezar&servicio=en-regla"));
   expect((await listarLeads(db, filtros)).total).toBe(0);
 });
@@ -543,7 +546,7 @@ test("si Resend falla, el lead se guarda igual y la respuesta es correcta", asyn
       }),
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toMatchObject({ ok: true, id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
     expect(fetchFalso).toHaveBeenCalledTimes(1);
     const filas = await estado.db!.query("select servicio from nec.leads where email = 'marta@example.com'");
     expect(filas).toEqual([{ servicio: "arranque" }]);

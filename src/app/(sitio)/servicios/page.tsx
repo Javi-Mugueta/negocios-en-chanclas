@@ -38,8 +38,9 @@ function servicios(formulariosAbiertos: boolean): Servicio[] {
       texto:
         "Si vas a levantar inversión, emitir acciones o tienes un proyecto que no encaja en una LLC, quizá lo que necesitas es una C-Corp. Es un servicio a medida: antes de darte precio, entendemos qué quieres construir.",
       precio: "Presupuesto a medida",
-      cta: "Agenda una llamada gratuita de 15 min",
-      href: AGENDA_15MIN,
+      microcopy: "Es una estructura compleja: necesitamos analizar tu caso antes de darte precio.",
+      cta: "Cuéntanos tu proyecto",
+      href: "/contacto?servicio=corporacion",
     },
     {
       id: "cierre-llc",

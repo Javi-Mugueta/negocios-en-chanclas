@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { leerAtribucion } from "@/lib/atribucion";
-import { cierreLlc, contacto } from "@/lib/site";
+import { avisoEmailPago, cierreLlc, contacto, enlaceStripe } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 type Estado = "idle" | "sending" | "pago" | "error";
@@ -52,11 +52,6 @@ function formatoEin(valor: string): string {
   return cifras.length > 2 ? `${cifras.slice(0, 2)}-${cifras.slice(2)}` : cifras;
 }
 
-function enlacePago(id: string | null): string {
-  if (!id) return cierreLlc.pago;
-  return `${cierreLlc.pago}?client_reference_id=${encodeURIComponent(id)}`;
-}
-
 export function CierraTuLlcForm() {
   const [estado, setEstado] = useState<Estado>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,6 +61,7 @@ export function CierraTuLlcForm() {
   const [socios, setSocios] = useState("");
   const [cuando, setCuando] = useState("");
   const [referencia, setReferencia] = useState<string | null>(null);
+  const [emailPago, setEmailPago] = useState("");
   const pagoRef = useRef<HTMLHeadingElement>(null);
 
   const otroEstado = estadoLlc === "otro";
@@ -126,6 +122,7 @@ export function CierraTuLlcForm() {
         return;
       }
       setReferencia(json.id ?? null);
+      setEmailPago(valor("email").trim().toLowerCase());
       setEstado("pago");
       form.reset();
       setEin("");
@@ -151,12 +148,13 @@ export function CierraTuLlcForm() {
           tarjeta en Stripe.
         </p>
         <a
-          href={enlacePago(referencia)}
+          href={enlaceStripe(cierreLlc.pago, { id: referencia, email: emailPago })}
           className="group mt-8 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none sm:w-auto"
         >
           Pagar {cierreLlc.precio}
           <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </a>
+        {emailPago && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(emailPago)}</p>}
         <p className="mt-6 max-w-xl text-sm text-arena/65">{cierreLlc.avisoPago}</p>
       </div>
     );
