@@ -244,7 +244,6 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                     </div>
                   );
                 })}
-                <Fila k="Pasaporte" v="Pendiente: se pide por email" />
                 <Fila
                   k="Términos y Condiciones"
                   v={alta.datos.aceptaTerminos === true ? `Aceptados · versión ${String(alta.datos.terminosVersion ?? "—")}` : "No"}

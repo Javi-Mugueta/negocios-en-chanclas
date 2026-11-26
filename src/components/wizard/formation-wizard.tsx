@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Copy, FileText, Lock, Plus, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, Lock, Plus, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
@@ -34,10 +34,11 @@ import {
   type Tipo,
 } from "@/lib/asistente";
 import {
-  AGENDA_15MIN,
+  avisoEmailPago,
   checklistPresentacion,
   cierreLlc,
   contacto,
+  enlaceStripe,
   estadosConstitucionDestacados,
   estadosConstitucionResto,
   formulariosLlc,
@@ -146,6 +147,15 @@ const otrosEstados = estadosConstitucionResto;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Destinos de contacto de las reglas de C-Corp y encargo personalizado. */
+const CONTACTO_CORP = "/contacto?servicio=corporacion";
+const CONTACTO_ENCARGO = "/contacto?servicio=encargo";
+
+/** «Crear» + C-Corp: no sigue el alta, va a contacto. */
+function esCorpAlCrear(r: { punto: Punto | null; tipo: Tipo | null }): boolean {
+  return r.punto === "crear" && r.tipo === "corp";
+}
+
 export function FormationWizard({
   puntoInicial,
   plan,
@@ -164,6 +174,8 @@ export function FormationWizard({
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState("");
   const [firmaGuardada, setFirmaGuardada] = useState<string | null>(null);
+  /** Id del lead guardado: va como client_reference_id en Stripe. */
+  const [referencia, setReferencia] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const router = useRouter();
   const caso = casoAsistente(r);
@@ -236,6 +248,11 @@ export function FormationWizard({
       router.push("/cierra-tu-llc");
       return;
     }
+    if (idPaso === "tipo" && esCorpAlCrear(r)) {
+      // Las C-Corp no se contratan online: van a contacto con el aviso de estructura compleja.
+      router.push(CONTACTO_CORP);
+      return;
+    }
     if (paso < pasos.length - 1) {
       irA(paso + 1);
       return;
@@ -292,7 +309,11 @@ export function FormationWizard({
           ...leerAtribucion(),
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { errors?: Record<string, string>; error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        errors?: Record<string, string>;
+        error?: string;
+        id?: string | null;
+      };
       if (!res.ok) {
         if (json.errors) {
           // Llevamos a la persona al primer paso con un error.
@@ -310,6 +331,7 @@ export function FormationWizard({
         return;
       }
       setFirmaGuardada(firma);
+      setReferencia(json.id ?? null);
       irA(paso + 1);
     } catch {
       setErrorEnvio("No hemos podido guardar tus respuestas.");
@@ -321,6 +343,10 @@ export function FormationWizard({
   function saltarA(destino: number) {
     if (destino > 0 && r.punto === "cerrar") {
       router.push("/cierra-tu-llc");
+      return;
+    }
+    if (destino > indiceDe("tipo") && esCorpAlCrear(r)) {
+      router.push(CONTACTO_CORP);
       return;
     }
     if (destino > paso) {
@@ -377,7 +403,6 @@ export function FormationWizard({
           { paso: indiceDe("telefono"), k: "Teléfono", v: r.telefono.trim() },
           { paso: indiceDe("direccion"), k: "Dirección", v: r.direccion.trim() },
           { paso: indiceDe("actividad"), k: "Actividad", v: r.actividad.trim() },
-          { paso: indiceDe("pasaporte"), k: "Pasaporte", v: "Te lo pediremos más adelante por email" },
           { paso: indiceDe("pais"), k: "País de residencia", v: r.paisResidencia.trim() },
           {
             paso: indiceDe("facturacion"),
@@ -413,11 +438,9 @@ export function FormationWizard({
   const pasoInvalido = idPaso != null && esPasoAlta(idPaso) && Object.keys(validar(paso)).length > 0;
   const textoBoton = enviando
     ? "Guardando…"
-    : idPaso === "pasaporte"
-      ? "Omitir para más adelante"
-      : paso === pasos.length - 1
-        ? "Ver mi siguiente paso"
-        : "Continuar";
+    : paso === pasos.length - 1
+      ? "Ver mi siguiente paso"
+      : "Continuar";
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
@@ -934,24 +957,6 @@ export function FormationWizard({
               </Paso>
             )}
 
-            {idPaso === "pasaporte" && (
-              <Paso
-                headingRef={headingRef}
-                titulo="Fotografía del pasaporte"
-                texto="De la hoja con tus datos. Que se vea bien, sin brillos ni reflejos y con las 4 esquinas visibles."
-              >
-                <div className="flex items-start gap-4 rounded-2xl border-2 border-dashed border-tinta/15 bg-white/60 p-5">
-                  <FileText className="mt-0.5 size-6 shrink-0 text-chancla-2" aria-hidden="true" />
-                  <div>
-                    <p className="font-semibold text-tinta">Te lo pediremos más adelante por email.</p>
-                    <p className="mt-1 text-sm text-tinta/60">
-                      Ve teniéndolo a mano: PNG, JPG o PDF, máximo 10 MB. Este paso es opcional por ahora.
-                    </p>
-                  </div>
-                </div>
-              </Paso>
-            )}
-
             {idPaso === "pais" && (
               <Paso
                 headingRef={headingRef}
@@ -1102,6 +1107,7 @@ export function FormationWizard({
             r={r}
             caso={caso}
             plan={plan}
+            referencia={referencia}
             formulariosAbiertos={formulariosAbiertos}
             resumen={resumen}
             onEditar={irA}
@@ -1405,6 +1411,7 @@ function Resultado({
   r,
   caso,
   plan,
+  referencia,
   formulariosAbiertos,
   resumen,
   onEditar,
@@ -1415,6 +1422,7 @@ function Resultado({
   r: Respuestas;
   caso: Caso | null;
   plan?: PlanAsistente;
+  referencia: string | null;
   formulariosAbiertos: boolean;
   resumen: { paso: number; k: string; v: string }[];
   onEditar: (i: number) => void;
@@ -1427,6 +1435,7 @@ function Resultado({
   const saludo = nombrePila ? `${nombrePila}, ` : "";
   const planActual = planElegido === "estandar" ? planEstandar : planElegido === "basico" ? planBasico : null;
   const otroPlan = planElegido === "estandar" ? planBasico : planEstandar;
+  const email = r.email.trim().toLowerCase();
 
   let titular: React.ReactNode;
   let cuerpo: React.ReactNode;
@@ -1447,9 +1456,10 @@ function Resultado({
         )}
         <div className={cn("mt-7 grid grid-cols-1 gap-4", !planActual && "md:grid-cols-2")}>
           {(planActual ? [planActual] : [planBasico, planEstandar]).map((p) => (
-            <TarjetaPlan key={p.id} plan={p} />
+            <TarjetaPlan key={p.id} plan={p} referencia={referencia} email={email} />
           ))}
         </div>
+        {email && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(email)}</p>}
         {planActual && (
           <button
             type="button"
@@ -1490,7 +1500,7 @@ function Resultado({
           te escribimos para conocer tu caso.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <CtaLink href={AGENDA_15MIN}>Agenda una llamada gratuita de 15 min</CtaLink>
+          <CtaLink href={CONTACTO_ENCARGO}>Cuéntanos tu caso</CtaLink>
         </div>
       </>
     );
@@ -1627,7 +1637,7 @@ function Resultado({
 }
 
 /** Plan Básico o Estándar, con el mismo contenido que las tarjetas de la home. */
-function TarjetaPlan({ plan }: { plan: Plan }) {
+function TarjetaPlan({ plan, referencia, email }: { plan: Plan; referencia: string | null; email: string }) {
   return (
     <article className="flex flex-col rounded-3xl bg-arena/10 p-6">
       <p className="font-mono text-xs tracking-[0.16em] text-sol uppercase">{plan.servicio}</p>
@@ -1650,7 +1660,7 @@ function TarjetaPlan({ plan }: { plan: Plan }) {
           </li>
         ))}
       </ul>
-      <CtaLink href={plan.href} className="mt-6 w-full">
+      <CtaLink href={enlaceStripe(plan.pago ?? plan.href, { id: referencia, email })} className="mt-6 w-full">
         {plan.cta}
       </CtaLink>
     </article>

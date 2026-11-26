@@ -71,7 +71,10 @@ export default async function ContactoPage({
 
         <div className="relative lg:col-span-7">
           <ChanclaMark className="absolute -top-8 -right-2 z-10 size-16 rotate-12 animate-float [--r:12deg] sm:-right-6" />
-          <ContactForm servicioInicial={typeof servicio === "string" ? servicio : undefined} />
+          <ContactForm
+            key={typeof servicio === "string" ? servicio : ""}
+            servicioInicial={typeof servicio === "string" ? servicio : undefined}
+          />
         </div>
       </div>
     </section>

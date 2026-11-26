@@ -68,7 +68,10 @@ export type Plan = {
   destacado?: boolean;
   incluye: string[];
   cta: string;
+  /** Adónde lleva el botón de la tarjeta de la home. */
   href: string;
+  /** Enlace de Stripe que se abre al final del alta (solo planes Básico y Estándar). */
+  pago?: string;
 };
 
 const incluyeBasico = [
@@ -93,7 +96,8 @@ export const planes: Plan[] = [
     aviso: avisoRenovacion,
     incluye: incluyeBasico,
     cta: "Empezar con el Plan Básico",
-    href: "https://buy.stripe.com/7sY00j1KN2Ru8fp1NVcV22n",
+    href: "/empezar?plan=basico",
+    pago: "https://buy.stripe.com/7sY00j1KN2Ru8fp1NVcV22n",
   },
   {
     id: "estandar",
@@ -106,7 +110,8 @@ export const planes: Plan[] = [
     destacado: true,
     incluye: [...incluyeBasico, "Consultoría de 45 min en la que resolvemos 1 a 1 tus dudas"],
     cta: "Empezar con el Plan Estándar",
-    href: "https://buy.stripe.com/3cI8wP3SV2Ru7bl2RZcV22o",
+    href: "/empezar?plan=estandar",
+    pago: "https://buy.stripe.com/3cI8wP3SV2Ru7bl2RZcV22o",
   },
   {
     id: "encargo",
@@ -115,10 +120,10 @@ export const planes: Plan[] = [
     lema: "Si necesitas que un experto de verdad se siente contigo",
     precio: "Precio por encargo",
     incluye: [
-      "Para personas que quieran abrir una LLC de dos o más miembros, en otros estados, que quieran abrir una C Corp o que tengan una situación más compleja.",
+      "Para personas que quieran abrir una LLC de dos o más miembros, en otros estados, que quieran abrir una C-Corp o que tengan una situación más compleja.",
     ],
     cta: "Quiero un encargo personalizado",
-    href: "/encargo-personalizado",
+    href: "/contacto?servicio=encargo",
   },
 ];
 
@@ -156,6 +161,38 @@ export const cierreLlc = {
   pago: "https://buy.stripe.com/cNibJ1757gIk67h2RZcV22p",
   avisoPago:
     "El pago se realizará a Leaving Vorkuta LLC directamente a través de Stripe, mercantil responsable de la prestación del servicio. Con el pago aceptamos tu encargo: cerramos tu LLC en un máximo de 30 días naturales (sin contar festivos) y te enviamos toda la documentación.",
+};
+
+/**
+ * Enlace de pago de Stripe unido a la ficha guardada: `client_reference_id` (id del lead)
+ * y `prefilled_email` (email del cliente). Sin id o sin email, se omite ese parámetro.
+ */
+export function enlaceStripe(base: string, { id, email }: { id?: string | null; email?: string | null }): string {
+  const params = new URLSearchParams();
+  if (id) params.set("client_reference_id", id);
+  const correo = email?.trim();
+  if (correo) params.set("prefilled_email", correo);
+  const query = params.toString();
+  return query ? `${base}${base.includes("?") ? "&" : "?"}${query}` : base;
+}
+
+/** Aviso junto a cada botón de pago, por si el cliente cambia el email en Stripe. */
+export function avisoEmailPago(email: string): string {
+  return `Usa en Stripe el mismo email que nos has dado (${email.trim()}). Así unimos tu pago con tus datos.`;
+}
+
+/** Avisos encima del formulario de contacto según el servicio marcado (`?servicio=`). */
+export const avisosContacto: Partial<Record<string, { titulo: string; texto: string }>> = {
+  corporacion: {
+    titulo: "Una C-Corp es una estructura compleja.",
+    texto:
+      "Antes de darte precio necesitamos analizar tu caso de forma personalizada: socios, inversión, acciones y dónde vas a operar. Cuéntanos tu proyecto y te escribimos para verlo contigo.",
+  },
+  encargo: {
+    titulo: "Tu caso necesita un análisis personalizado.",
+    texto:
+      "Las LLC de varios socios o en otros estados, las C-Corp y las situaciones más complejas las estudiamos contigo antes de darte precio. Cuéntanos tu caso y te escribimos.",
+  },
 };
 
 /** Llamada gratuita de 15 min. */

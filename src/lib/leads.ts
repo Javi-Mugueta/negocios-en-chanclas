@@ -297,7 +297,7 @@ export const FUENTES = [
     origen: "contacto" as const,
     servicio,
     nombre: servicio === "encargo" ? "Encargo personalizado" : servicio === "formularios-llc" ? "Formularios LLC" : servicio === "cierre-llc" ? "Cierre de LLC" : `Contacto · ${ETIQUETA_SERVICIO[servicio]}`,
-    url: servicio === "encargo" ? "/encargo-personalizado" : servicio === "formularios-llc" ? "/formularios-llc" : servicio === "cierre-llc" ? "/cierra-tu-llc" : `/contacto?servicio=${servicio}`,
+    url: servicio === "encargo" ? "/contacto?servicio=encargo" : servicio === "formularios-llc" ? "/formularios-llc" : servicio === "cierre-llc" ? "/cierra-tu-llc" : `/contacto?servicio=${servicio}`,
   })),
   ...[...new Set(Object.values(SERVICIO_POR_CASO))].map((servicio) => ({
     origen: "empezar" as const,

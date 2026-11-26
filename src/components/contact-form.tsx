@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { ArrowRight, Check, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Honeypot } from "@/components/honeypot";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { leerAtribucion } from "@/lib/atribucion";
 import { claseSelect } from "@/components/select-class";
-import { contacto } from "@/lib/site";
+import { avisosContacto, contacto } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 const opciones = [
@@ -17,6 +17,7 @@ const opciones = [
   { value: "arranque", label: "Constituir una LLC" },
   { value: "cierre", label: "Cerrar mi LLC" },
   { value: "corporacion", label: "Corporación (C-Corp) a medida" },
+  { value: "encargo", label: "Encargo personalizado" },
   { value: "cambio-titularidad", label: "Cambio de titularidad" },
   { value: "operating-agreement", label: "Operating Agreement personalizado" },
   { value: "operaciones-societarias", label: "Operaciones societarias (M&A)" },
@@ -33,7 +34,9 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState("");
-  const inicial = opciones.some((o) => o.value === servicioInicial) ? servicioInicial : "en-regla";
+  const inicial = opciones.some((o) => o.value === servicioInicial) ? servicioInicial! : "en-regla";
+  const [servicio, setServicio] = useState(inicial);
+  const avisoServicio = avisosContacto[servicio];
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,6 +74,7 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
       }
       setEstado("sent");
       form.reset();
+      setServicio(inicial);
     } catch {
       setEstado("error");
     }
@@ -105,6 +109,14 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
       className="relative rounded-[2rem] border border-tinta/10 bg-card p-6 shadow-[0_30px_60px_-40px_rgba(19,41,61,0.4)] sm:p-9"
     >
       <Honeypot />
+      {avisoServicio && (
+        <div role="note" className="mb-6 flex gap-3 rounded-[1.5rem] border-2 border-sol/70 bg-sol/15 p-5 text-sm text-tinta">
+          <Info className="mt-0.5 size-5 shrink-0 text-chancla-2" aria-hidden="true" />
+          <p>
+            <strong>{avisoServicio.titulo}</strong> {avisoServicio.texto}
+          </p>
+        </div>
+      )}
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Nombre" name="nombre" error={errors.nombre}>
           <Input id="nombre" name="nombre" autoComplete="name" required className={field} aria-invalid={!!errors.nombre} />
@@ -119,7 +131,8 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
           <select
             id="servicio"
             name="servicio"
-            defaultValue={inicial}
+            value={servicio}
+            onChange={(e) => setServicio(e.target.value)}
             className={cn(field, claseSelect)}
           >
             {opciones.map((o) => (

@@ -82,7 +82,7 @@ test("el cuerpo incluye fecha en Madrid, todos los datos de alta, enlaces y el a
   expect(texto).toContain("Alta · Actividad: Consultoría de marketing digital");
   expect(texto).toContain("Alta · País de residencia: España");
   expect(texto).toContain("Alta · Facturación anual esperada: Menos de 25.000 $");
-  expect(texto).toContain("Alta · Pasaporte: pendiente");
+  expect(texto).not.toContain("Pasaporte");
   expect(texto).toContain("Alta · Términos aceptados: Sí");
   expect(texto).toContain("Alta · Versión de los términos: ");
   expect(texto).toContain("Datos de alta completos: Sí");

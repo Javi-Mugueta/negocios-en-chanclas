@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return json({ ok: false, error: "Formato no válido." }, 400);
   }
 
-  if (esHoneypot(body)) return json({ ok: true });
+  if (esHoneypot(body)) return json({ ok: true, id: null });
 
   const validado = validarEmpezar(body);
   if ("errores" in validado) return json({ ok: false, errors: validado.errores }, 422);
@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     const ipHash = hashIp(ipDeLaPeticion(request));
     const { id } = await insertarLead(getDb(), validado.datos, { ipHash, userAgent: agente(request) });
     await avisarLead(validado.datos, id);
-    return json({ ok: true });
+    // El id va en el client_reference_id de Stripe para unir el pago con el alta.
+    return json({ ok: true, id });
   } catch (error) {
     if (error instanceof LimiteConsultasError) {
       return json(

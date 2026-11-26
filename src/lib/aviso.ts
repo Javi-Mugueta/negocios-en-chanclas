@@ -13,7 +13,7 @@ const RESEND_URL = "https://api.resend.com/emails";
 const TIMEOUT_MS = 8000;
 
 export const AVISO_PAGO =
-  "El cliente ha llegado a los planes; el pago se confirma en Stripe.";
+  "El cliente ha llegado a los planes; el pago se confirma en Stripe (client_reference_id = id de este lead).";
 
 /** Plan del asistente en el asunto (precio del primer año). */
 const PLAN_ASUNTO: Record<string, string> = {

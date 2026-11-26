@@ -230,8 +230,6 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
               alta: {
                 ...alta,
                 facturacionEtiqueta: FACTURACION[alta.facturacion],
-                // Sin almacenamiento de archivos: el pasaporte se pide después por email.
-                pasaporte: "pendiente",
                 terminosVersion: CONSENTIMIENTO_VERSION,
               },
               altaCompleta: true,
