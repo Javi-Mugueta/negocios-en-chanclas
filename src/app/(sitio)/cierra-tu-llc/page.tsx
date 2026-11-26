@@ -3,11 +3,12 @@ import Link from "next/link";
 import { AlertTriangle, Check } from "lucide-react";
 import { Eyebrow } from "@/components/brand/cta";
 import { CierraTuLlcForm } from "@/components/cierra-tu-llc-form";
-import { cierreLlc, contacto } from "@/lib/site";
+import { LISTA_ESTADOS_LLC } from "@/lib/precios";
+import { AVISO_PLAZO, cierreLlc, contacto, PLAZO } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Cierra tu LLC",
-  description: `Cerramos tu LLC de Wyoming o Nuevo México de principio a fin: disolución ante el estado, 1120 y 5472 finales y cierre del EIN. ${cierreLlc.precioCompleto}.`,
+  description: `Cerramos tu LLC de ${LISTA_ESTADOS_LLC} de principio a fin: disolución ante el estado, 1120 y 5472 finales y cierre del EIN. ${cierreLlc.precioCompleto}.`,
 };
 
 const enlace = "font-semibold text-chancla-2 underline decoration-chancla/40 underline-offset-4";
@@ -28,8 +29,8 @@ const incluye = [
     agent.
   </>,
   <>
-    <strong className="text-tinta">En un máximo de 30 días naturales</strong> (sin contar festivos) desde el pago,
-    con la LLC cerrada y toda la documentación enviada a tu email.
+    <strong className="text-tinta">En {PLAZO}</strong> desde el pago, con la LLC cerrada y toda la documentación
+    enviada a tu email.
   </>,
 ];
 
@@ -53,15 +54,15 @@ export default function CierraTuLlcPage() {
         <div className="mt-8">
           <p className="font-display text-4xl font-extrabold md:text-5xl">{cierreLlc.precioCompleto}</p>
           <p className="mt-3 text-tinta/80">
-            Para LLC de <strong className="text-tinta">Wyoming</strong> y{" "}
-            <strong className="text-tinta">Nuevo México</strong>. ¿Tu LLC es de otro estado?{" "}
+            Para LLC de <strong className="text-tinta">{LISTA_ESTADOS_LLC}</strong>. ¿Tu LLC es de otro estado?{" "}
             <Link href="/contacto?servicio=cierre" className={enlace}>
               Escríbenos
             </Link>{" "}
             y te damos presupuesto.
           </p>
           <p className="mt-2 text-sm text-tinta/60">
-            Las tasas públicas dependen del estado donde está registrada tu LLC.
+            La tasa de disolución depende del estado donde está registrada tu LLC. En Nuevo México está incluida en
+            el precio. Al elegir el estado en el formulario verás el precio exacto.
           </p>
         </div>
 
@@ -77,6 +78,7 @@ export default function CierraTuLlcPage() {
               </li>
             ))}
           </ul>
+          <p className="mt-4 text-sm text-tinta/60">{AVISO_PLAZO}</p>
         </div>
 
         <div className="mt-6 rounded-[2rem] border-2 border-sol/70 bg-sol/15 p-6 sm:p-8">
@@ -88,7 +90,7 @@ export default function CierraTuLlcPage() {
             <li className="flex gap-3 text-tinta/85">
               <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-chancla" />
               <span>
-                El servicio es para <strong>LLC de Wyoming o Nuevo México</strong> con{" "}
+                El servicio es para <strong>LLC de {LISTA_ESTADOS_LLC.replace(" y ", " o ")}</strong> con{" "}
                 <strong>un solo socio</strong> que no es ciudadano ni residente fiscal en EE. UU.
               </span>
             </li>
@@ -107,15 +109,20 @@ export default function CierraTuLlcPage() {
                 ) y te damos presupuesto.
               </span>
             </li>
-            <li className="flex gap-3 text-tinta/85">
-              <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-chancla" />
-              <span>
-                Si tu LLC <strong>no está al día</strong> (formularios de otros años sin presentar, informe
-                anual del estado pendiente o registered agent dado de baja), hay que regularizarlo antes
-                de cerrar. Lo revisamos y te decimos qué hace falta y cuánto cuesta antes de empezar.
-              </span>
-            </li>
           </ul>
+        </div>
+
+        <div role="note" className="mt-6 rounded-[2rem] border-2 border-chancla/50 bg-chancla/10 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold">Solo para LLC al día</h2>
+          <p className="mt-3 text-tinta/85">{cierreLlc.avisoAlDia}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href="/contacto?servicio=cierre" className={enlace}>
+              Escríbenos
+            </Link>
+            <a href={contacto.whatsapp.espana.href} target="_blank" rel="noopener noreferrer" className={enlace}>
+              WhatsApp {contacto.whatsapp.espana.visible}
+            </a>
+          </div>
         </div>
 
         <div className="mt-10">

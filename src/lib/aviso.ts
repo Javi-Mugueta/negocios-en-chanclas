@@ -5,6 +5,7 @@
  * Nunca lanza: un fallo de envío se registra y el lead ya está guardado.
  */
 import { ETIQUETA_ORIGEN, etiquetaServicio } from "@/lib/etiquetas";
+import { dolares } from "@/lib/precios";
 import { SITIO_URL } from "@/lib/privacidad";
 import type { DatosLead } from "@/lib/validacion";
 
@@ -13,12 +14,16 @@ const RESEND_URL = "https://api.resend.com/emails";
 const TIMEOUT_MS = 8000;
 
 export const AVISO_PAGO =
-  "El cliente ha llegado a los planes; el pago se confirma en Stripe (client_reference_id = id de este lead).";
+  "El cliente ha llegado al pago; el pago se confirma en Stripe (client_reference_id = id de este lead).";
 
-/** Plan del asistente en el asunto (precio del primer año). */
+/** Importe sin enlace de Stripe: la web le dice al cliente que le enviamos el enlace de pago por email. */
+export const AVISO_PAGO_MANUAL =
+  "Este importe todavía no tiene enlace de Stripe: hay que enviarle al cliente el enlace de pago por email (con client_reference_id = id de este lead).";
+
+/** Plan del asistente en el asunto. */
 const PLAN_ASUNTO: Record<string, string> = {
-  basico: "Básico 397 $",
-  estandar: "Estándar 497 $",
+  basico: "Básico",
+  estandar: "Estándar",
 };
 
 /** Etiquetas legibles de las claves de `datos` (y de `datos.alta`). Lo no listado sale con su clave. */
@@ -66,7 +71,42 @@ const ETIQUETAS: Record<string, string> = {
   cuentas: "Cuentas abiertas",
   cuando: "Cuándo quiere cerrarla",
   aceptaPrecio: "Acepta el precio",
+  activa: "LLC activa en el estado",
+  confirmaAlDia: "Confirma que la LLC está al día",
+  residenteEeuu: "Ciudadano o residente fiscal en EE. UU.",
+  precio: "Precio",
+  precioTotal: "Total (USD)",
+  pagoOnline: "Pago online disponible",
+  numSocios: "Número de socios",
+  interlocutor: "Persona de contacto (n.º de socio, desde 0)",
+  interlocutorNombre: "Persona de contacto",
+  gestion: "Gestión (código)",
+  gestionEtiqueta: "Quién decide el día a día",
+  gestores: "Gestores",
+  reparto: "Reparto (código)",
+  repartoEtiqueta: "Reparto de beneficios",
+  repartoOtro: "Reparto acordado",
+  pactoSalida: "Quieren pactar la salida de un socio",
+  confirmaSocios: "Confirma que los demás socios aceptan",
 };
+
+/** Una línea por socio: «Ana Pérez · ana@… · España · española · 50 % · Persona». */
+function lineaSocio(socio: unknown): string {
+  if (!socio || typeof socio !== "object") return valorLegible(socio);
+  const s = socio as Record<string, unknown>;
+  return [
+    s.nombre,
+    s.email,
+    s.paisResidencia ? `reside en ${String(s.paisResidencia)}` : null,
+    s.nacionalidad ? `nacionalidad ${String(s.nacionalidad)}` : null,
+    s.porcentaje != null ? `${String(s.porcentaje).replace(".", ",")} %` : null,
+    s.tipoEtiqueta ?? s.tipo,
+    s.residenteEeuu === false ? "no es persona de EE. UU." : s.residenteEeuu === true ? "persona de EE. UU." : null,
+  ]
+    .filter((v) => v != null && v !== "")
+    .map(String)
+    .join(" · ");
+}
 
 export type FilaAviso = [etiqueta: string, valor: string];
 
@@ -119,19 +159,37 @@ function planDe(lead: DatosLead): string | null {
   return typeof p === "string" && p in PLAN_ASUNTO ? p : null;
 }
 
-/** El lead viene del asistente y su caso es un plan (llega a las tarjetas con el pago). */
+/** El lead llega a una pantalla de pago: plan o varios socios del asistente, o cierre. */
 function llegaAPlanes(lead: DatosLead): boolean {
-  return lead.origen === "empezar" && lead.datos.caso === "plan";
+  if (lead.origen === "empezar") return lead.datos.caso === "plan" || lead.datos.caso === "varios";
+  return lead.servicio === "cierre-llc" || lead.servicio === "formularios-llc";
+}
+
+function avisoPagoDe(lead: DatosLead): string | null {
+  if (!llegaAPlanes(lead)) return null;
+  return lead.datos.pagoOnline === false ? AVISO_PAGO_MANUAL : AVISO_PAGO;
+}
+
+function precioDe(lead: DatosLead): string | null {
+  return typeof lead.datos.precio === "string" && lead.datos.precio ? lead.datos.precio : null;
 }
 
 export function asuntoAviso(lead: DatosLead): string {
   const partes = ["Nuevo lead NEC", etiquetaServicio(lead.servicio)];
   const caso = casoDe(lead);
   if (caso) partes.push(caso);
-  if (llegaAPlanes(lead)) {
+  if (lead.origen === "empezar" && lead.datos.caso === "plan") {
     const plan = planDe(lead);
-    partes.push(plan ? `Plan ${PLAN_ASUNTO[plan]}` : "Plan sin elegir (Básico 397 $ / Estándar 497 $)");
+    partes.push(plan ? `Plan ${PLAN_ASUNTO[plan]}` : "Plan sin elegir");
   }
+  if (lead.origen === "empezar" && lead.datos.caso === "varios" && typeof lead.datos.alta === "object" && lead.datos.alta) {
+    const n = (lead.datos.alta as Record<string, unknown>).numSocios;
+    if (typeof n === "number") partes.push(`${n} socios`);
+  }
+  const estado = lead.datos.estado ?? lead.datos.estadoConstitucion;
+  if (llegaAPlanes(lead) && typeof estado === "string" && estado) partes.push(estado);
+  if (typeof lead.datos.precioTotal === "number") partes.push(dolares(lead.datos.precioTotal));
+  if (lead.datos.pagoOnline === false) partes.push("Pago por enlace manual");
   partes.push(lead.nombre || "Sin nombre");
   return enLinea(partes.join(" · "));
 }
@@ -145,10 +203,12 @@ export function filasAviso(lead: DatosLead, id: string | null, fecha: Date): Fil
   ];
   const caso = casoDe(lead);
   if (caso) filas.push(["Caso", caso]);
-  if (llegaAPlanes(lead)) {
+  if (lead.origen === "empezar" && lead.datos.caso === "plan") {
     const plan = planDe(lead);
     filas.push(["Plan elegido", plan ? String(lead.datos.planEtiqueta ?? PLAN_ASUNTO[plan]) : "Sin elegir todavía"]);
   }
+  const precio = precioDe(lead);
+  if (precio) filas.push(["Precio", precio]);
   filas.push(
     ["Nombre / titular", valorLegible(lead.nombre)],
     ["Email", valorLegible(lead.email)],
@@ -157,8 +217,13 @@ export function filasAviso(lead: DatosLead, id: string | null, fecha: Date): Fil
   if (lead.mensaje) filas.push(["Mensaje", lead.mensaje]);
 
   for (const [clave, valor] of Object.entries(lead.datos)) {
+    if (clave === "precio") continue;
     if (clave === "alta" && valor && typeof valor === "object" && !Array.isArray(valor)) {
       for (const [k, v] of Object.entries(valor as Record<string, unknown>)) {
+        if (k === "socios" && Array.isArray(v)) {
+          v.forEach((socio, i) => filas.push([`Alta · Socio ${i + 1}`, lineaSocio(socio)]));
+          continue;
+        }
         filas.push([`Alta · ${etiqueta(k)}`, valorLegible(v)]);
       }
       continue;
@@ -185,7 +250,7 @@ export function componerAviso(lead: DatosLead, id: string | null, fecha = new Da
   const asunto = asuntoAviso(lead);
   const filas = filasAviso(lead, id, fecha);
   const enlaces = enlacesAviso(id);
-  const avisoPago = llegaAPlanes(lead) ? AVISO_PAGO : null;
+  const avisoPago = avisoPagoDe(lead);
 
   const filasHtml = filas
     .map(

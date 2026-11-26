@@ -33,6 +33,25 @@ const ALTA = {
   facturacion: "menos-25k",
   aceptaTerminos: true,
 };
+const ALTA_SOCIOS = {
+  numSocios: 3,
+  socios: [
+    { nombre: "Marta López", email: "marta@example.com", paisResidencia: "Argentina", nacionalidad: "argentina", porcentaje: "33,34", tipo: "persona", residenteEeuu: "no" },
+    { nombre: "Pablo Díaz", email: "pablo@example.com", paisResidencia: "España", nacionalidad: "española", porcentaje: "33,33", tipo: "persona", residenteEeuu: "no" },
+    { nombre: "Sara Gil", email: "sara@example.com", paisResidencia: "Uruguay", nacionalidad: "uruguaya", porcentaje: "33,33", tipo: "persona", residenteEeuu: "no" },
+  ],
+  interlocutor: 0,
+  opcionesNombre: ["Tres Chanclas LLC", "Three Flip Flops LLC", "Chanclas Trio LLC"],
+  gestion: "todos",
+  reparto: "otro",
+  repartoOtro: "Marta cobra un 10 % extra por la gestión.",
+  pactoSalida: "si",
+  direccion: "Av. Corrientes 1000, C1043 Buenos Aires, Argentina",
+  actividad: "Agencia de desarrollo web con clientes en Europa y América.",
+  facturacion: "mas-100k",
+  aceptaTerminos: true,
+  confirmaSocios: true,
+};
 const { GET: exportar } = await import("@/app/api/panel/leads/export/route");
 const detalle = await import("@/app/api/panel/leads/[id]/route");
 const { verificarToken } = await import("@/lib/sesion");
@@ -123,7 +142,8 @@ test("el asistente guarda las respuestas en datos", async () => {
     post("/api/empezar", {
       punto: "crear",
       tipo: "llc-1",
-      estado: "no-se",
+      residenteEeuu: "no",
+      estado: "Florida",
       nombre: "Luis Pérez",
       email: "luis@example.com",
       telefono: "+34 611 222 333",
@@ -137,7 +157,23 @@ test("el asistente guarda las respuestas en datos", async () => {
   expect(filas[0].origen).toBe("empezar");
   expect(filas[0].servicio).toBe("arranque");
   expect(filas[0].mensaje).toBeNull();
-  expect(JSON.stringify(filas[0].datos)).toContain("Aún por decidir");
+  expect(JSON.stringify(filas[0].datos)).toContain("Florida");
+
+  // «Aún no lo sé» no llega a guardarse: el asistente desvía a contacto antes del alta.
+  const noSe = await empezar(
+    post("/api/empezar", {
+      punto: "crear",
+      tipo: "llc-1",
+      residenteEeuu: "no",
+      estado: "no-se",
+      nombre: "Luis Pérez",
+      email: "luis@example.com",
+      telefono: "+34 611 222 333",
+      alta: ALTA,
+      consentimiento: true,
+    }),
+  );
+  expect(noSe.status).toBe(422);
 });
 
 test("el acceso falla, se bloquea y luego deja entrar", async () => {
@@ -357,17 +393,19 @@ const cierreOk = {
   telefono: "+34 659 30 81 19",
   paisResidencia: "España",
   nombreLlc: "Playa Digital LLC",
-  estadoConstitucion: "nuevo-mexico",
+  estadoConstitucion: "New Mexico",
   ein: "12-3456789",
   fechaConstitucion: "2023-05-10",
   socios: "uno",
+  activa: "si",
   formulariosPrevios: "si",
-  agenteAlDia: "no-se",
+  agenteAlDia: "si",
   cuentas: "Mercury y Stripe",
   cuando: "otra",
   cuandoOtra: "Marzo de 2027",
   notas: "Tengo una carta del IRS.",
   datosCorrectos: true,
+  confirmaAlDia: true,
   aceptaPrecio: true,
   consentimiento: true,
   pagina: "/cierra-tu-llc",
@@ -387,8 +425,17 @@ test("cierre de LLC guarda la consulta con servicio cierre-llc", async () => {
   const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
   expect(datos.estadoConstitucion).toBe("Nuevo México");
   expect(datos.socios).toBe("Solo yo");
-  expect(datos.agenteAlDia).toBe("No lo sé");
+  expect(datos.agenteAlDia).toBe("Sí");
   expect(datos.cuando).toBe("Otra fecha: Marzo de 2027");
+  expect(datos).toMatchObject({ precioTotal: 467, pagoOnline: true, precio: "467 $ (tasa del estado incluida)" });
+
+  const delaware = await cierre(
+    post("/api/cierra-tu-llc", { ...cierreOk, estadoConstitucion: "Delaware" }, { "x-forwarded-for": "203.0.113.20" }),
+  );
+  expect(delaware.status).toBe(200);
+  const [fila] = await estado.db!.query("select datos from nec.leads order by created_at desc limit 1");
+  expect(JSON.stringify(fila.datos)).toContain('"precioTotal":687');
+  expect(JSON.stringify(fila.datos)).toContain('"pagoOnline":false');
 });
 
 test("cierre de LLC no admite otro estado, dos o más socios ni faltar las casillas", async () => {
@@ -399,6 +446,9 @@ test("cierre de LLC no admite otro estado, dos o más socios ni faltar las casil
       socios: "varios",
       telefono: "",
       aceptaPrecio: false,
+      confirmaAlDia: false,
+      activa: "no",
+      agenteAlDia: "no-se",
       cuando: "otra",
       cuandoOtra: "",
     }),
@@ -406,7 +456,7 @@ test("cierre de LLC no admite otro estado, dos o más socios ni faltar las casil
   expect(res.status).toBe(422);
   const { errors } = (await res.json()) as { errors: Record<string, string> };
   expect(Object.keys(errors).sort()).toEqual(
-    ["aceptaPrecio", "cuandoOtra", "estadoConstitucion", "socios", "telefono"].sort(),
+    ["aceptaPrecio", "activa", "agenteAlDia", "confirmaAlDia", "cuandoOtra", "estadoConstitucion", "socios", "telefono"].sort(),
   );
   expect(await estado.db!.query("select id from nec.leads")).toHaveLength(0);
 });
@@ -428,6 +478,7 @@ test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
     post("/api/empezar", {
       punto: "crear",
       tipo: "llc-1",
+      residenteEeuu: "no",
       estado: "New Mexico",
       nombre: "Eva Ruiz",
       email: "eva@example.com",
@@ -444,7 +495,8 @@ test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
   const filas = await estado.db!.query("select datos from nec.leads");
   const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
   expect(datos.plan).toBe("estandar");
-  expect(datos.planEtiqueta).toBe("Plan Estándar (497 $ primer año)");
+  expect(datos.planEtiqueta).toBe("Plan Estándar");
+  expect(datos.precioTotal).toBe(497);
   expect(datos.caso).toBe("plan");
 });
 
@@ -456,7 +508,7 @@ test("fuentes incluye combinaciones vacías y cuenta por origen y servicio en ho
   const fuentes = await contadoresFuentes(db, new Date("2026-11-25T12:00:00Z"));
   expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "en-regla")).toMatchObject({ total: 1, hoy: 1, semana: 1 });
   expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "en-regla")).toMatchObject({ total: 0, hoy: 0, semana: 0 });
-  expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "encargo")?.url).toBe("/contacto?servicio=encargo");
+  expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "encargo")?.url).toBe("/contacto?servicio=arranque");
   const filtros = filtrosDesdeUrl(new URL("https://negociosenchanclas.com/panel?origen=empezar&servicio=en-regla"));
   expect((await listarLeads(db, filtros)).total).toBe(0);
 });
@@ -469,10 +521,8 @@ test("el asistente guarda los datos de alta y el panel los cuenta en fuentes", a
       punto: "crear",
       tipo: "llc-2",
       estado: "Wyoming",
-      nombre: "Marta López",
-      email: "marta@example.com",
       telefono: "+54 11 2345 6789",
-      alta: { ...ALTA, facturacion: "mas-100k" },
+      alta: ALTA_SOCIOS,
       consentimiento: true,
     }),
   );
@@ -485,19 +535,21 @@ test("el asistente guarda los datos de alta y el panel los cuenta en fuentes", a
   const filas = await db.query<{ id: string; servicio: string; telefono: string }>(
     "select id, servicio, telefono from nec.leads where email = 'marta@example.com'",
   );
-  expect(filas[0]).toMatchObject({ servicio: "encargo", telefono: "+54 11 2345 6789" });
+  expect(filas[0]).toMatchObject({ servicio: "arranque", telefono: "+54 11 2345 6789" });
   const lead = await obtenerLead(db, filas[0].id);
   expect(tieneAltaCompleta(lead!)).toBe(true);
+  expect(lead!.datos).toMatchObject({ caso: "varios", precioTotal: 726, estado: "Wyoming" });
   expect(lead!.datos.alta).toMatchObject({
-    paisResidencia: "España",
+    numSocios: 3,
     facturacionEtiqueta: "Más de 100.000 $",
-    opcionesNombre: ALTA.opcionesNombre,
+    opcionesNombre: ALTA_SOCIOS.opcionesNombre,
   });
   const antiguo = await obtenerLead(db, "00000000-0000-4000-8000-000000000001");
   expect(tieneAltaCompleta(antiguo!)).toBe(false);
 
   const fuentes = await contadoresFuentes(db);
-  expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "encargo")).toMatchObject({ total: 2, conAlta: 1 });
+  expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "arranque")).toMatchObject({ total: 1, conAlta: 1 });
+  expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "encargo")).toMatchObject({ total: 1, conAlta: 0 });
   expect(fuentes.find((f) => f.origen === "empezar" && f.servicio === "en-regla")?.conAlta).toBeNull();
   expect(fuentes.find((f) => f.origen === "contacto" && f.servicio === "encargo")?.conAlta).toBeNull();
 });
@@ -507,6 +559,7 @@ test("el asistente rechaza crear sin aceptar los términos", async () => {
     post("/api/empezar", {
       punto: "crear",
       tipo: "llc-1",
+      residenteEeuu: "no",
       estado: "New Mexico",
       nombre: "Eva Ruiz",
       email: "eva@example.com",
@@ -536,6 +589,7 @@ test("si Resend falla, el lead se guarda igual y la respuesta es correcta", asyn
       post("/api/empezar", {
         punto: "crear",
         tipo: "llc-1",
+        residenteEeuu: "no",
         estado: "New Mexico",
         nombre: "Marta López",
         email: "marta@example.com",

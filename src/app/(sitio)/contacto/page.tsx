@@ -14,9 +14,11 @@ export const metadata: Metadata = {
 export default async function ContactoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ servicio?: string }>;
+  searchParams: Promise<{ servicio?: string; mensaje?: string }>;
 }) {
-  const { servicio } = await searchParams;
+  const { servicio, mensaje } = await searchParams;
+  // Mensaje empezado desde los desvíos de la web (p. ej. «Quiero abrir una LLC y no sé en qué estado.»).
+  const mensajeInicial = typeof mensaje === "string" ? mensaje.slice(0, 500) : undefined;
 
   return (
     <section className="relative overflow-hidden pb-24 md:pb-32">
@@ -72,8 +74,9 @@ export default async function ContactoPage({
         <div className="relative lg:col-span-7">
           <ChanclaMark className="absolute -top-8 -right-2 z-10 size-16 rotate-12 animate-float [--r:12deg] sm:-right-6" />
           <ContactForm
-            key={typeof servicio === "string" ? servicio : ""}
+            key={`${typeof servicio === "string" ? servicio : ""}|${mensajeInicial ?? ""}`}
             servicioInicial={typeof servicio === "string" ? servicio : undefined}
+            mensajeInicial={mensajeInicial}
           />
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { avisarLead, AVISO_PAGO, componerAviso, configAviso, escaparHtml } from "@/lib/aviso";
+import { avisarLead, AVISO_PAGO, AVISO_PAGO_MANUAL, componerAviso, configAviso, escaparHtml } from "@/lib/aviso";
 import { validarEmpezar } from "@/lib/validacion";
 import type { DatosLead } from "@/lib/validacion";
 
@@ -13,11 +13,12 @@ const ID = "11111111-2222-4333-8444-555555555555";
 // 25 de noviembre de 2026, 10:30 UTC = 11:30 en Madrid.
 const FECHA = new Date("2026-11-25T10:30:00Z");
 
-function leadPlan(plan?: string): DatosLead {
+function leadPlan(plan?: string, estado = "New Mexico"): DatosLead {
   const r = validarEmpezar({
     punto: "crear",
     tipo: "llc-1",
-    estado: "New Mexico",
+    residenteEeuu: "no",
+    estado,
     nombre: "Marta <b>López</b>",
     email: "marta@example.com",
     telefono: "+34 600 000 000",
@@ -55,10 +56,12 @@ afterEach(() => {
 
 test("el asunto del asistente con plan lleva servicio, caso, plan y nombre", () => {
   expect(componerAviso(leadPlan("basico"), ID, FECHA).asunto).toBe(
-    "Nuevo lead NEC · Constituir una LLC · Plan Básico o Estándar · Plan Básico 397 $ · Marta <b>López</b>",
+    "Nuevo lead NEC · Constituir una LLC · Plan Básico o Estándar · Plan Básico · Nuevo México · 397 $ · Marta <b>López</b>",
   );
-  expect(componerAviso(leadPlan("estandar"), ID, FECHA).asunto).toContain("Plan Estándar 497 $");
-  expect(componerAviso(leadPlan(), ID, FECHA).asunto).toContain("Plan sin elegir (Básico 397 $ / Estándar 497 $)");
+  expect(componerAviso(leadPlan("estandar", "Delaware"), ID, FECHA).asunto).toContain(
+    "Plan Estándar · Delaware · 607 $ · Pago por enlace manual",
+  );
+  expect(componerAviso(leadPlan(), ID, FECHA).asunto).toContain("Plan sin elegir · Nuevo México · Marta");
 });
 
 test("el asunto de contacto lleva servicio y nombre, sin plan", () => {
@@ -74,7 +77,8 @@ test("el cuerpo incluye fecha en Madrid, todos los datos de alta, enlaces y el a
   expect(texto).toContain("Fuente: Asistente");
   expect(texto).toContain("Servicio: Constituir una LLC");
   expect(texto).toContain("Caso: Plan Básico o Estándar");
-  expect(texto).toContain("Plan elegido: Plan Estándar (497 $ primer año)");
+  expect(texto).toContain("Plan elegido: Plan Estándar");
+  expect(texto).toContain("Precio: Plan Estándar: 497 $ (tasa del estado incluida)");
   expect(texto).toContain("Email: marta@example.com");
   expect(texto).toContain("Teléfono: +34 600 000 000");
   expect(texto).toContain("Alta · Opciones de nombre de la LLC: Sombrilla Studio LLC, Sombrilla & Co LLC, Sunshade Studio LLC");
@@ -106,8 +110,43 @@ test("el HTML escapa los datos del usuario", () => {
   expect(escaparHtml(`"a'&`)).toBe("&quot;a&#39;&amp;");
 });
 
-test("solo el asistente con plan lleva el aviso de pago", () => {
+test("solo lo que llega a un pago lleva el aviso de pago; sin enlace de Stripe, el aviso de enlace manual", () => {
   expect(componerAviso(contacto, ID, FECHA).texto).not.toContain(AVISO_PAGO);
+  const delaware = componerAviso(leadPlan("basico", "Delaware"), ID, FECHA).texto;
+  expect(delaware).toContain(AVISO_PAGO_MANUAL);
+  expect(delaware).toContain("Precio: Plan Básico: 507 $ = 397 $ + 110 $ (tasa del estado de Delaware)");
+});
+
+test("el aviso de varios socios lista cada socio en una línea", () => {
+  const r = validarEmpezar({
+    punto: "crear",
+    tipo: "llc-2",
+    estado: "Delaware",
+    alta: {
+      numSocios: 2,
+      socios: [
+        { nombre: "Ana Pérez", email: "ana@example.com", paisResidencia: "España", nacionalidad: "española", porcentaje: "60", tipo: "persona", residenteEeuu: "no" },
+        { nombre: "Luis Gómez", email: "luis@example.com", paisResidencia: "México", nacionalidad: "mexicana", porcentaje: "40", tipo: "persona", residenteEeuu: "no" },
+      ],
+      interlocutor: 1,
+      opcionesNombre: ["Dos Chanclas LLC", "Two Flip Flops LLC", "Chanclas Duo LLC"],
+      gestion: "todos",
+      reparto: "porcentaje",
+      pactoSalida: "si",
+      direccion: "Av. Reforma 100, 06600 Ciudad de México, México",
+      actividad: "Agencia de desarrollo web con clientes en Europa y América.",
+      facturacion: "25k-50k",
+      aceptaTerminos: true,
+      confirmaSocios: true,
+    },
+    consentimiento: true,
+  });
+  if ("errores" in r) throw new Error(JSON.stringify(r.errores));
+  const { asunto, texto } = componerAviso(r.datos, ID, FECHA);
+  expect(asunto).toBe("Nuevo lead NEC · Constituir una LLC · LLC de varios socios · 2 socios · Delaware · 657 $ · Pago por enlace manual · Luis Gómez");
+  expect(texto).toContain("Alta · Socio 1: Ana Pérez · ana@example.com · reside en España · nacionalidad española · 60 % · Persona");
+  expect(texto).toContain("Alta · Persona de contacto: Luis Gómez");
+  expect(texto).toContain(AVISO_PAGO_MANUAL);
 });
 
 test("sin variables de entorno no se envía nada", async () => {
@@ -128,7 +167,7 @@ test("envía a Resend con remitente y destinatarios de las variables", async () 
   const cuerpo = JSON.parse(String(init.body)) as Record<string, unknown>;
   expect(cuerpo.from).toBe("Avisos <avisos@example.com>");
   expect(cuerpo.to).toEqual(["uno@example.com", "dos@example.com"]);
-  expect(cuerpo.subject).toContain("Plan Básico 397 $");
+  expect(cuerpo.subject).toContain("Plan Básico · Nuevo México · 397 $");
   expect(typeof cuerpo.html).toBe("string");
   expect(typeof cuerpo.text).toBe("string");
 });

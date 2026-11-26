@@ -10,7 +10,33 @@ import {
   type Requisitos,
   type Tipo,
 } from "@/lib/asistente";
-import { FACTURACION, MENSAJES_ALTA, telefonoConPrefijo, validarAlta, type DatosAlta } from "@/lib/alta";
+import {
+  FACTURACION,
+  GESTION,
+  MENSAJES_ALTA,
+  REPARTO,
+  telefonoConPrefijo,
+  TIPOS_SOCIO,
+  validarAlta,
+  validarAltaSocios,
+  type DatosAlta,
+  type DatosAltaSocios,
+} from "@/lib/alta";
+import {
+  CLAVES_ESTADOS_LLC,
+  enlacePago,
+  esEstadoLlc,
+  LISTA_ESTADOS_LLC,
+  nombreEstado,
+  PLANES,
+  PLANES_APERTURA,
+  precioApertura,
+  precioAperturaVarios,
+  precioCierre,
+  resumenPrecio,
+  type ClaveEstadoLlc,
+  type PlanApertura,
+} from "@/lib/precios";
 import { CONSENTIMIENTO_VERSION } from "@/lib/privacidad";
 import { estadosConstitucion, PLANES_ASISTENTE } from "@/lib/site";
 import {
@@ -41,6 +67,7 @@ const cuerpo = z.object({
   sinNombre: z.unknown().optional(),
   plan: z.unknown().optional(),
   requisitos: z.unknown().optional(),
+  residenteEeuu: z.unknown().optional(),
   alta: z.unknown().optional(),
 });
 
@@ -147,51 +174,78 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
   const otro = texto(raw.otroEstado);
   const nombreLlc = texto(raw.nombreLLC);
   const requisitos = texto(raw.requisitos);
-  const nombre = texto(raw.nombre);
-  const email = texto(raw.email).toLowerCase();
+  let nombre = texto(raw.nombre);
+  let email = texto(raw.email).toLowerCase();
+  const esAlta = punto === "crear";
 
   if (!PUNTOS.includes(punto as Punto)) errores.punto = "Elige por dónde empezamos.";
   if (!TIPOS.includes(tipo as Tipo) || (tipo === "corp" && punto !== "crear")) {
     errores.tipo = "Elige el tipo de LLC.";
+  } else if (tipo === "corp") {
+    // Regla 1: las C-Corp no se dan de alta online.
+    errores.tipo = "Las C-Corp las vemos contigo: escríbenos desde el formulario de contacto.";
   }
   if (punto === "anual" && !REQUISITOS.includes(requisitos as Requisitos)) {
     errores.requisitos = "Dinos si cumples los requisitos.";
   }
 
   let estadoVisible = "";
-  if (!estado) {
-    errores.estado = "Elige un estado (o dinos que aún no lo sabes).";
+  if (esAlta) {
+    // V3: solo los 7 estados. Otro estado o «Aún no lo sé» se desvían a contacto en el asistente.
+    if (!esEstadoLlc(estado)) errores.estado = "Elige uno de los estados de la lista.";
+    else estadoVisible = nombreEstado(estado);
+  } else if (!estado) {
+    errores.estado = "Elige el estado en el que está registrada.";
   } else if (estado === "otro") {
     if (!otro || !estadosConstitucion.includes(otro)) errores.otroEstado = "Elige el estado de la lista.";
     else estadoVisible = otro;
-  } else if (estado === "no-se") {
-    if (punto !== "crear") errores.estado = "Elige el estado en el que está registrada.";
-    else estadoVisible = "Aún por decidir";
   } else if (!estadosConstitucion.includes(estado)) {
     errores.estado = "Elige un estado de la lista.";
   } else {
     estadoVisible = estado;
   }
 
-  // Crear: el nombre de la LLC sale de las opciones del alta y el teléfono es obligatorio.
-  const esAlta = punto === "crear";
+  // V4 en la LLC de un socio (en varios socios se pregunta por cada socio).
+  if (esAlta && tipo === "llc-1" && raw.residenteEeuu !== "no") {
+    errores.residenteEeuu =
+      raw.residenteEeuu === "si"
+        ? "Si eres ciudadano o residente fiscal en EE. UU., tu caso lo vemos por contacto."
+        : "Dinos si eres ciudadano o residente fiscal en EE. UU.";
+  }
+
   let alta: DatosAlta | null = null;
-  if (esAlta) {
+  let altaSocios: DatosAltaSocios | null = null;
+  let telefono: string | null = null;
+  if (esAlta && tipo === "llc-2") {
+    // La persona de contacto es uno de los socios: su nombre y su email van en la raíz del lead.
+    const resultado = validarAltaSocios(raw.alta);
+    if ("errores" in resultado) Object.assign(errores, resultado.errores);
+    else {
+      altaSocios = resultado.alta;
+      nombre = altaSocios.socios[altaSocios.interlocutor].nombre;
+      email = altaSocios.socios[altaSocios.interlocutor].email;
+    }
+    const tel = texto(raw.telefono);
+    if (tel && !telefonoConPrefijo(tel)) errores.telefono = MENSAJES_ALTA.telefono;
+    telefono = tel || null;
+  } else if (esAlta) {
+    // Un socio: el nombre de la LLC sale de las opciones del alta y el teléfono es obligatorio.
     const resultado = validarAlta(raw.alta);
     if ("errores" in resultado) Object.assign(errores, resultado.errores);
     else alta = resultado.alta;
     if (nombre.length < 3) errores.nombre = MENSAJES_ALTA.nombre;
     if (!telefonoConPrefijo(texto(raw.telefono))) errores.telefono = MENSAJES_ALTA.telefono;
-  } else if (!nombreLlc || nombreLlc.length > 120) {
-    errores.nombreLLC = "Escribe el nombre de tu LLC.";
+    telefono = texto(raw.telefono);
+  } else {
+    if (!nombreLlc || nombreLlc.length > 120) errores.nombreLLC = "Escribe el nombre de tu LLC.";
+    telefono = telefonoDe(raw.telefono, errores);
   }
 
-  if (!nombre || nombre.length > 120) errores.nombre ??= "Dinos cómo te llamas.";
-  if (!email || email.length > 200 || !emailValido(email)) {
-    errores.email = "Escribe un email válido.";
+  if (!altaSocios) {
+    if (!nombre || nombre.length > 120) errores.nombre ??= "Dinos cómo te llamas.";
+    if (!email || email.length > 200 || !emailValido(email)) errores.email = "Escribe un email válido.";
   }
   if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
-  const telefono = esAlta ? texto(raw.telefono) : telefonoDe(raw.telefono, errores);
   if (Object.keys(errores).length) return { errores };
 
   const puntoOk = punto as Punto;
@@ -215,16 +269,19 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
         tipo: tipoOk,
         tipoEtiqueta: ETIQUETA_TIPO[tipoOk],
         estado: estadoVisible,
-        nombreLlc: alta ? alta.opcionesNombre[0] : nombreLlc,
+        nombreLlc: alta ? alta.opcionesNombre[0] : altaSocios ? altaSocios.opcionesNombre[0] : nombreLlc,
         ...(requisitosOk
           ? {
               requisitos: requisitosOk,
               requisitosEtiqueta: requisitosOk === "si" ? "Los cumple todos" : "No cumple alguno o tiene dudas",
             }
           : {}),
+        ...(esAlta && tipoOk === "llc-1" ? { residenteEeuu: false } : {}),
         caso,
         casoEtiqueta: ETIQUETA_CASO[caso],
         ...(plan ? { plan, planEtiqueta: PLANES_ASISTENTE[plan] } : {}),
+        ...(caso === "plan" ? preciosPlan(estado as ClaveEstadoLlc, plan) : {}),
+        ...(caso === "varios" && altaSocios ? precioVarios(estado as ClaveEstadoLlc, altaSocios.numSocios) : {}),
         ...(alta
           ? {
               alta: {
@@ -235,15 +292,49 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
               altaCompleta: true,
             }
           : {}),
+        ...(altaSocios
+          ? {
+              alta: {
+                ...altaSocios,
+                socios: altaSocios.socios.map((s) => ({ ...s, tipoEtiqueta: TIPOS_SOCIO[s.tipo] })),
+                interlocutorNombre: altaSocios.socios[altaSocios.interlocutor].nombre,
+                gestionEtiqueta: GESTION[altaSocios.gestion],
+                repartoEtiqueta: REPARTO[altaSocios.reparto],
+                facturacionEtiqueta: FACTURACION[altaSocios.facturacion],
+                terminosVersion: CONSENTIMIENTO_VERSION,
+              },
+              altaCompleta: true,
+            }
+          : {}),
       },
     },
   };
 }
 
-const PLANES = ["basico", "estandar"] as const;
+/** Precio que ve el cliente en la pantalla final (plan + tasa del estado) y si se puede pagar online. */
+function preciosPlan(estado: ClaveEstadoLlc, plan: PlanApertura | null): Record<string, unknown> {
+  const planes = plan ? [plan] : PLANES;
+  const precios = planes.map((p) => ({ p, precio: precioApertura(estado, p) }));
+  return {
+    precio: precios
+      .map(({ p, precio }) => `${PLANES_APERTURA[p].nombre}: ${resumenPrecio(precio)}`)
+      .join(" · "),
+    ...(plan ? { precioTotal: precios[0].precio.total } : {}),
+    pagoOnline: precios.every(({ p, precio }) => enlacePago(p, precio.total) != null),
+  };
+}
 
-export function planDe(value: unknown): (typeof PLANES)[number] | null {
-  return PLANES.includes(value as (typeof PLANES)[number]) ? (value as (typeof PLANES)[number]) : null;
+function precioVarios(estado: ClaveEstadoLlc, socios: number): Record<string, unknown> {
+  const precio = precioAperturaVarios(estado, socios);
+  return {
+    precio: resumenPrecio(precio),
+    precioTotal: precio.total,
+    pagoOnline: enlacePago("varios", precio.total) != null,
+  };
+}
+
+export function planDe(value: unknown): PlanApertura | null {
+  return PLANES.includes(value as PlanApertura) ? (value as PlanApertura) : null;
 }
 
 /** Encargo personalizado: solo nombre y email. */
@@ -403,11 +494,19 @@ export function validarFormulariosLlc(
   };
 }
 
-/** Cierre de LLC: opciones de los desplegables. Solo «Wyoming»/«Nuevo México» y un socio llegan al pago. */
-export const CIERRE_ESTADOS = { wyoming: "Wyoming", "nuevo-mexico": "Nuevo México", otro: "Otro estado" } as const;
+/** Cierre de LLC: opciones de los desplegables. Los 7 estados, un socio y LLC al día llegan al pago. */
+export const CIERRE_ESTADOS: Record<string, string> = {
+  ...Object.fromEntries(CLAVES_ESTADOS_LLC.map((clave) => [clave, nombreEstado(clave)])),
+  otro: "Otro estado",
+};
 export const CIERRE_SOCIOS = { uno: "Solo yo", varios: "Dos o más" } as const;
 export const CIERRE_SI_NO = { si: "Sí", no: "No", "no-se": "No lo sé" } as const;
 export const CIERRE_CUANDO = { "cuanto-antes": "Cuanto antes", "final-ano": "A final de año", otra: "Otra fecha" } as const;
+/** Las tres preguntas de situación que deciden si la LLC está al día (V5). */
+export const CIERRE_PREGUNTAS_AL_DIA = ["activa", "formulariosPrevios", "agenteAlDia"] as const;
+export const DESVIO_CIERRE_ESTADO = `Cerramos LLC de ${LISTA_ESTADOS_LLC}. Si tu LLC es de otro estado, contacta con nosotros y te damos presupuesto.`;
+export const DESVIO_CIERRE_AL_DIA =
+  "Para cerrar tu LLC con este servicio tiene que estar al día. Escríbenos y vemos qué hace falta regularizar antes.";
 
 function opcion<T extends Record<string, string>>(mapa: T, value: unknown): keyof T | null {
   const v = texto(value);
@@ -445,10 +544,7 @@ export function validarCierreLlc(body: unknown): { errores: Record<string, strin
 
   const estado = opcion(CIERRE_ESTADOS, raw.estadoConstitucion);
   if (!estado) errores.estadoConstitucion = "Elige el estado de constitución.";
-  else if (estado === "otro") {
-    errores.estadoConstitucion =
-      "Por este precio cerramos LLC de Wyoming y Nuevo México. Si tu LLC es de otro estado, contacta con nosotros y te damos presupuesto.";
-  }
+  else if (estado === "otro") errores.estadoConstitucion = DESVIO_CIERRE_ESTADO;
 
   const ein = texto(raw.ein);
   if (!EIN_RE.test(ein)) errores.ein = "El EIN tiene el formato XX-XXXXXXX (9 cifras).";
@@ -462,10 +558,12 @@ export function validarCierreLlc(body: unknown): { errores: Record<string, strin
     errores.socios = "Con dos o más socios no se contrata aquí: contacta con nosotros y te damos presupuesto.";
   }
 
-  const formulariosPrevios = opcion(CIERRE_SI_NO, raw.formulariosPrevios);
-  if (!formulariosPrevios) errores.formulariosPrevios = "Elige una opción.";
-  const agenteAlDia = opcion(CIERRE_SI_NO, raw.agenteAlDia);
-  if (!agenteAlDia) errores.agenteAlDia = "Elige una opción.";
+  // V5: solo LLC al día. «No» o «No lo sé» en cualquiera de las tres preguntas va a contacto.
+  for (const clave of CIERRE_PREGUNTAS_AL_DIA) {
+    const valor = opcion(CIERRE_SI_NO, raw[clave]);
+    if (!valor) errores[clave] = "Elige una opción.";
+    else if (valor !== "si") errores[clave] = DESVIO_CIERRE_AL_DIA;
+  }
 
   const cuentas = limpio("cuentas");
   if (!cuentas || cuentas.length > 500) errores.cuentas = "Dinos qué cuentas tiene abiertas la LLC.";
@@ -479,11 +577,13 @@ export function validarCierreLlc(body: unknown): { errores: Record<string, strin
   if (notas.length > 4000) errores.notas = "El texto es demasiado largo.";
 
   if (raw.datosCorrectos !== true) errores.datosCorrectos = "Debes confirmar que los datos son correctos y completos.";
+  if (raw.confirmaAlDia !== true) errores.confirmaAlDia = "Debes confirmar que tu LLC está al día.";
   if (raw.aceptaPrecio !== true) errores.aceptaPrecio = "Debes confirmar que entiendes el precio.";
   if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
   if (Object.keys(errores).length) return { errores };
 
-  const estadoOk = estado as keyof typeof CIERRE_ESTADOS;
+  const estadoOk = estado as ClaveEstadoLlc;
+  const precio = precioCierre(estadoOk);
   const cuandoOk = cuando as keyof typeof CIERRE_CUANDO;
   return {
     datos: {
@@ -502,11 +602,16 @@ export function validarCierreLlc(body: unknown): { errores: Record<string, strin
         ein,
         fechaConstitucion,
         socios: CIERRE_SOCIOS.uno,
-        formulariosPrevios: CIERRE_SI_NO[formulariosPrevios as keyof typeof CIERRE_SI_NO],
-        agenteAlDia: CIERRE_SI_NO[agenteAlDia as keyof typeof CIERRE_SI_NO],
+        activa: CIERRE_SI_NO.si,
+        formulariosPrevios: CIERRE_SI_NO.si,
+        agenteAlDia: CIERRE_SI_NO.si,
         cuentas,
         cuando: cuandoOk === "otra" ? `${CIERRE_CUANDO.otra}: ${cuandoOtra}` : CIERRE_CUANDO[cuandoOk],
+        precio: resumenPrecio(precio),
+        precioTotal: precio.total,
+        pagoOnline: enlacePago("cierre", precio.total) != null,
         datosCorrectos: true,
+        confirmaAlDia: true,
         aceptaPrecio: true,
       },
     },

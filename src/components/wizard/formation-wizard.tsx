@@ -3,45 +3,79 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Copy, Lock, Plus, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, Lock, MessageCircle, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
+import { Confirmacion, PagoPorContacto } from "@/components/confirmacion";
 import { Honeypot } from "@/components/honeypot";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  desvioSocios,
   erroresPasoAlta,
   esPasoAlta,
   FACTURACION,
   FACTURACIONES,
+  GESTION,
   limpiarOpciones,
+  MAS_DE_DIEZ,
   MAX_OPCIONES_NOMBRE,
+  MAX_SOCIOS,
   MIN_ACTIVIDAD,
   MIN_OPCIONES_NOMBRE,
+  MIN_SOCIOS,
   pasosDe,
+  porcentajeDe,
+  REPARTO,
+  socioVacio,
+  TIPOS_SOCIO,
+  type BorradorSocio,
   type Facturacion,
+  type Gestion,
   type PasoAsistente,
   type PasoId,
+  type Reparto,
 } from "@/lib/alta";
 import { leerAtribucion } from "@/lib/atribucion";
 import {
   casoAsistente,
-  ESTADO_PLANES,
+  DESVIOS,
+  enlaceContacto,
   type Caso,
   type Punto,
   type Requisitos,
   type Tipo,
 } from "@/lib/asistente";
 import {
+  dolares,
+  enlacePago,
+  ESTADO_REFERENCIA,
+  ESTADOS_LLC,
+  esEstadoLlc,
+  nombreEstado,
+  PLANES_APERTURA,
+  precioApertura,
+  precioAperturaVarios,
+  precioRenovacion,
+  TEXTOS_PRECIO,
+  type ClaveEstadoLlc,
+  type PlanApertura,
+} from "@/lib/precios";
+import {
+  AVISO_PLAZO,
   avisoEmailPago,
+  avisoPagoApertura,
   checklistPresentacion,
   cierreLlc,
   contacto,
   enlaceStripe,
   estadosConstitucionDestacados,
   estadosConstitucionResto,
+  formularios1065,
   formulariosLlc,
+  incluyeApertura,
+  PLAZO,
   planes,
   PLANES_ASISTENTE,
   requisitosFormularios,
@@ -69,6 +103,18 @@ type Respuestas = {
   paisResidencia: string;
   facturacion: Facturacion | null;
   aceptaTerminos: boolean;
+  /** V4 en la LLC de un socio. */
+  residenteEeuu: "si" | "no" | null;
+  // Varios socios.
+  numSocios: number | typeof MAS_DE_DIEZ | null;
+  socios: BorradorSocio[];
+  interlocutor: number | null;
+  gestion: Gestion | null;
+  gestores: number[];
+  reparto: Reparto | null;
+  repartoOtro: string;
+  pactoSalida: "si" | "no" | null;
+  confirmaSocios: boolean;
 };
 
 const vacio: Respuestas = {
@@ -87,6 +133,16 @@ const vacio: Respuestas = {
   paisResidencia: "",
   facturacion: null,
   aceptaTerminos: false,
+  residenteEeuu: null,
+  numSocios: null,
+  socios: [],
+  interlocutor: null,
+  gestion: null,
+  gestores: [],
+  reparto: null,
+  repartoOtro: "",
+  pactoSalida: null,
+  confirmaSocios: false,
 };
 
 const PLACEHOLDERS_NOMBRE = ["Ej. Mi Empresa LLC", "Ej. MiEmpresa LLC", "Ej. My Company LLC"];
@@ -105,18 +161,26 @@ const PASO_DE_CAMPO: Record<string, PasoId> = {
   paisResidencia: "pais",
   facturacion: "facturacion",
   aceptaTerminos: "aceptacion",
+  confirmaSocios: "aceptacion",
+  residenteEeuu: "tipo",
+  numSocios: "numSocios",
+  interlocutor: "interlocutor",
+  gestion: "gestion",
+  gestores: "gestion",
+  reparto: "reparto",
+  repartoOtro: "reparto",
+  pactoSalida: "reparto",
 };
 
 const planBasico = planes.find((p) => p.id === "basico")!;
 const planEstandar = planes.find((p) => p.id === "estandar")!;
-const planEncargo = planes.find((p) => p.id === "encargo")!;
 
 const puntos: { value: Punto; titulo: string; texto: string; precio: string }[] = [
   {
     value: "crear",
     titulo: "Quiero crear mi LLC",
-    texto: `Plan Básico ${planBasico.precio} o Plan Estándar ${planEstandar.precio} el primer año; renovación, 197 $/año.`,
-    precio: `Desde ${planBasico.precio}`,
+    texto: `En ${ESTADOS_LLC.length} estados, de uno o de varios socios. En Nuevo México, tasa del estado incluida.`,
+    precio: TEXTOS_PRECIO.aperturaDesde,
   },
   {
     value: "anual",
@@ -127,7 +191,7 @@ const puntos: { value: Punto; titulo: string; texto: string; precio: string }[] 
   {
     value: "cerrar",
     titulo: "Quiero cerrar mi LLC",
-    texto: "Para LLC de Wyoming y Nuevo México. ¿Otro estado? Escríbenos y te damos presupuesto.",
+    texto: "Para LLC al día de los mismos 7 estados. ¿Otro estado? Escríbenos y te damos presupuesto.",
     precio: cierreLlc.precioCompleto,
   },
 ];
@@ -147,9 +211,10 @@ const otrosEstados = estadosConstitucionResto;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Destinos de contacto de las reglas de C-Corp y encargo personalizado. */
+/** Destino de contacto de la regla de C-Corp. */
 const CONTACTO_CORP = "/contacto?servicio=corporacion";
-const CONTACTO_ENCARGO = "/contacto?servicio=encargo";
+
+type Desvio = keyof typeof DESVIOS;
 
 /** «Crear» + C-Corp: no sigue el alta, va a contacto. */
 function esCorpAlCrear(r: { punto: Punto | null; tipo: Tipo | null }): boolean {
@@ -158,17 +223,24 @@ function esCorpAlCrear(r: { punto: Punto | null; tipo: Tipo | null }): boolean {
 
 export function FormationWizard({
   puntoInicial,
+  tipoInicial,
   plan,
   formulariosAbiertos = true,
 }: {
   puntoInicial?: Punto;
+  /** `/empezar?tipo=llc-2`: arranca con «Quiero crear mi LLC» y varios socios marcados. */
+  tipoInicial?: Tipo;
   plan?: PlanAsistente;
   /** /formularios-llc puede estar oculta (NEC_FORMULARIOS_LAUNCH): entonces el resultado lleva a contacto. */
   formulariosAbiertos?: boolean;
 }) {
   const [paso, setPaso] = useState(0);
   const [maxPaso, setMaxPaso] = useState(0);
-  const [r, setR] = useState<Respuestas>({ ...vacio, punto: puntoInicial ?? null });
+  const [r, setR] = useState<Respuestas>({
+    ...vacio,
+    punto: tipoInicial ? "crear" : (puntoInicial ?? null),
+    tipo: tipoInicial ?? null,
+  });
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [consentimiento, setConsentimiento] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -179,10 +251,27 @@ export function FormationWizard({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const router = useRouter();
   const caso = casoAsistente(r);
-  const pasos = pasosDe(r.punto);
+  const pasos = pasosDe(r.punto, r.tipo);
   const RESULTADO = pasos.length;
   const idPaso: PasoId | null = paso < RESULTADO ? pasos[paso].id : null;
   const primerRender = useRef(true);
+  const estadoLlc: ClaveEstadoLlc | null = esEstadoLlc(r.estado) ? r.estado : null;
+  const esCrear = r.punto === "crear";
+  const esVarios = esCrear && r.tipo === "llc-2";
+
+  /** Opción que saca al usuario del carril online en el paso actual (patrón de desvío de la 0.3). */
+  const desvio: Desvio | null =
+    idPaso === "tipo" && esCrear && r.tipo === "llc-1" && r.residenteEeuu === "si"
+      ? "residenteEeuu"
+      : idPaso === "estado" && esCrear && r.estado === "otro"
+        ? "otroEstado"
+        : idPaso === "estado" && esCrear && r.estado === "no-se"
+          ? "noSe"
+          : idPaso === "numSocios" && r.numSocios === MAS_DE_DIEZ
+            ? "masDeDiez"
+            : idPaso === "socios"
+              ? desvioSocios(r.socios)
+              : null;
 
   useEffect(() => {
     if (primerRender.current) {
@@ -210,8 +299,13 @@ export function FormationWizard({
     if (id === "punto" && !r.punto) e.punto = "Elige por dónde empezamos.";
     if (id === "tipo" && !r.tipo) e.tipo = "Elige el tipo de empresa.";
     if (id === "tipo" && r.punto === "anual" && !r.requisitos) e.requisitos = "Dinos si cumples los requisitos.";
+    if (id === "tipo" && esCrear && r.tipo === "llc-1" && r.residenteEeuu !== "no") {
+      e.residenteEeuu =
+        r.residenteEeuu === "si" ? DESVIOS.residenteEeuu.texto : "Dinos si eres ciudadano o residente fiscal en EE. UU.";
+    }
     if (id === "estado") {
       if (!r.estado) e.estado = "Elige un estado (o dinos que aún no lo sabes).";
+      else if (esCrear && !esEstadoLlc(r.estado)) e.estado = "Elige uno de los estados de la lista.";
       else if (r.estado === "otro" && !r.otroEstado) e.otroEstado = "Elige el estado de la lista.";
     }
     if (id === "nombre" && !r.nombreLLC.trim()) e.nombreLLC = "Escribe el nombre de tu LLC.";
@@ -236,6 +330,7 @@ export function FormationWizard({
 
   async function continuar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (desvio) return;
     const err = validar(paso);
     setErrores(err);
     if (Object.keys(err).length > 0) {
@@ -244,7 +339,7 @@ export function FormationWizard({
       return;
     }
     if (paso === 0 && r.punto === "cerrar") {
-      // El cierre tiene su propia página (467 $ + tasas del estado).
+      // El cierre tiene su propia página (precio + tasa de disolución del estado).
       router.push("/cierra-tu-llc");
       return;
     }
@@ -258,28 +353,50 @@ export function FormationWizard({
       return;
     }
 
-    const esCrear = r.punto === "crear";
-    const alta = esCrear
+    const alta = esVarios
       ? {
+          numSocios: r.numSocios,
+          socios: r.socios,
+          interlocutor: r.interlocutor,
           opcionesNombre: limpiarOpciones(r.opcionesNombre),
+          gestion: r.gestion,
+          gestores: r.gestion === "gestores" ? r.gestores : [],
+          reparto: r.reparto,
+          repartoOtro: r.reparto === "otro" ? r.repartoOtro : "",
+          pactoSalida: r.pactoSalida,
           direccion: r.direccion,
           actividad: r.actividad,
-          paisResidencia: r.paisResidencia,
           facturacion: r.facturacion,
           aceptaTerminos: r.aceptaTerminos,
+          confirmaSocios: r.confirmaSocios,
         }
-      : undefined;
+      : esCrear
+        ? {
+            opcionesNombre: limpiarOpciones(r.opcionesNombre),
+            direccion: r.direccion,
+            actividad: r.actividad,
+            paisResidencia: r.paisResidencia,
+            facturacion: r.facturacion,
+            aceptaTerminos: r.aceptaTerminos,
+          }
+        : undefined;
+    // En varios socios, la persona de contacto es uno de ellos.
+    const interlocutor = esVarios && r.interlocutor != null ? r.socios[r.interlocutor] : null;
+    const nombre = interlocutor ? interlocutor.nombre : r.nombre;
+    const email = interlocutor ? interlocutor.email : r.email;
     const firma = JSON.stringify({
       punto: r.punto,
       tipo: r.tipo,
       requisitos: r.requisitos,
+      residenteEeuu: r.residenteEeuu,
       estado: r.estado,
       otroEstado: r.otroEstado,
       nombreLLC: r.nombreLLC,
-      nombre: r.nombre,
-      email: r.email,
+      nombre,
+      email,
       telefono: r.telefono,
       alta,
+      plan,
     });
     if (firma === firmaGuardada) {
       irA(paso + 1);
@@ -296,11 +413,12 @@ export function FormationWizard({
           punto: r.punto,
           tipo: r.tipo,
           requisitos: r.punto === "anual" ? r.requisitos : undefined,
+          residenteEeuu: esCrear && r.tipo === "llc-1" ? r.residenteEeuu : undefined,
           estado: r.estado,
           otroEstado: r.otroEstado,
           nombreLLC: esCrear ? undefined : r.nombreLLC,
-          nombre: r.nombre,
-          email: r.email,
+          nombre,
+          email,
           telefono: r.telefono,
           alta,
           plan: caso === "plan" ? plan : undefined,
@@ -318,7 +436,7 @@ export function FormationWizard({
         if (json.errors) {
           // Llevamos a la persona al primer paso con un error.
           const indices = Object.keys(json.errors)
-            .map((clave) => pasos.findIndex((p) => p.id === pasoDeCampo(clave, esCrear)))
+            .map((clave) => pasos.findIndex((p) => p.id === pasoDeCampo(clave, esCrear, esVarios)))
             .filter((i) => i >= 0);
           const destino = indices.length ? Math.min(...indices) : paso;
           if (destino !== paso) irA(destino);
@@ -368,8 +486,58 @@ export function FormationWizard({
     irA(0);
   }
 
+  /** «Elegir Nuevo México» en la tarjeta de «Aún no lo sé»: marca el estado y sigue con el alta. */
+  function elegirNuevoMexico() {
+    set("estado", ESTADO_REFERENCIA);
+    irA(paso + 1);
+  }
+
+  function cambiarNumSocios(n: number | typeof MAS_DE_DIEZ) {
+    setR((prev) => {
+      if (n === MAS_DE_DIEZ) return { ...prev, numSocios: n };
+      const socios = Array.from({ length: n }, (_, i) => prev.socios[i] ?? socioVacio());
+      const dentro = (i: number) => i < n;
+      return {
+        ...prev,
+        numSocios: n,
+        socios,
+        interlocutor: prev.interlocutor != null && dentro(prev.interlocutor) ? prev.interlocutor : null,
+        gestores: prev.gestores.filter(dentro),
+      };
+    });
+    setErrores({});
+  }
+
+  function quitarSocio(i: number) {
+    setR((prev) => {
+      const socios = prev.socios.filter((_, j) => j !== i);
+      const mover = (j: number) => (j > i ? j - 1 : j);
+      return {
+        ...prev,
+        numSocios: socios.length,
+        socios,
+        interlocutor: prev.interlocutor == null || prev.interlocutor === i ? null : mover(prev.interlocutor),
+        gestores: prev.gestores.filter((g) => g !== i).map(mover),
+      };
+    });
+    setErrores({});
+  }
+
+  function cambiarSocio<K extends keyof BorradorSocio>(i: number, k: K, v: BorradorSocio[K]) {
+    setR((prev) => ({ ...prev, socios: prev.socios.map((s, j) => (j === i ? { ...s, [k]: v } : s)) }));
+    setErrores((prev) => {
+      const clave = `socios.${i}.${k}`;
+      if (!prev[clave] && !prev.socios) return prev;
+      const next = { ...prev };
+      delete next[clave];
+      delete next.socios;
+      return next;
+    });
+  }
+
   const estadoTexto =
-    r.estado === "otro" ? r.otroEstado : r.estado === "no-se" ? "Aún por decidir" : (r.estado ?? "");
+    r.estado === "otro" ? r.otroEstado : r.estado === "no-se" ? "Aún por decidir" : nombreEstado(r.estado ?? "");
+  const nombreSocio = (i: number) => r.socios[i]?.nombre.trim() || `Socio ${i + 1}`;
 
   const indiceDe = (id: PasoId) => Math.max(0, pasos.findIndex((p) => p.id === id));
   const resumen = [
@@ -389,7 +557,58 @@ export function FormationWizard({
         .join(" · "),
     },
     { paso: indiceDe("estado"), k: "Estado", v: estadoTexto },
-    ...(r.punto === "crear"
+    ...(esVarios
+      ? [
+          { paso: indiceDe("numSocios"), k: "Número de socios", v: String(r.socios.length) },
+          {
+            paso: indiceDe("socios"),
+            k: "Socios",
+            v: r.socios
+              .map((s, i) => `${nombreSocio(i)} (${porcentajeDe(s.porcentaje) ?? "?"} %, ${s.tipo ? TIPOS_SOCIO[s.tipo] : "?"})`)
+              .join(" · "),
+          },
+          {
+            paso: indiceDe("interlocutor"),
+            k: "Persona de contacto",
+            v: [r.interlocutor != null ? nombreSocio(r.interlocutor) : "", r.interlocutor != null ? r.socios[r.interlocutor]?.email : "", r.telefono.trim()]
+              .filter(Boolean)
+              .join(" · "),
+          },
+          {
+            paso: indiceDe("opciones"),
+            k: "Nombres de la LLC",
+            v: limpiarOpciones(r.opcionesNombre)
+              .map((o, i) => `${i + 1}. ${o}`)
+              .join(" · "),
+          },
+          {
+            paso: indiceDe("gestion"),
+            k: "Gestión",
+            v: r.gestion
+              ? r.gestion === "gestores"
+                ? `${GESTION.gestores}: ${r.gestores.map(nombreSocio).join(", ")}`
+                : GESTION.todos
+              : "",
+          },
+          {
+            paso: indiceDe("reparto"),
+            k: "Reparto y salida",
+            v: [
+              r.reparto === "otro" ? `${REPARTO.otro}: ${r.repartoOtro.trim()}` : r.reparto ? REPARTO[r.reparto] : "",
+              r.pactoSalida ? (r.pactoSalida === "si" ? "Quieren pactar la salida" : "Sin pacto especial de salida") : "",
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          },
+          { paso: indiceDe("domicilio"), k: "Dirección", v: r.direccion.trim() },
+          { paso: indiceDe("domicilio"), k: "Actividad", v: r.actividad.trim() },
+          {
+            paso: indiceDe("facturacion"),
+            k: "Facturación esperada",
+            v: r.facturacion ? FACTURACION[r.facturacion] : "",
+          },
+        ]
+      : r.punto === "crear"
       ? [
           { paso: indiceDe("titular"), k: "Titular", v: r.nombre.trim() },
           { paso: indiceDe("email"), k: "Email", v: r.email.trim() },
@@ -424,7 +643,7 @@ export function FormationWizard({
     const texto = [
       "Negocios en Chanclas · Resumen",
       ...resumen.map((x) => `${x.k}: ${x.v}`),
-      caso ? `Siguiente paso: ${siguientePaso(caso, plan)}` : "",
+      caso ? `Siguiente paso: ${siguientePaso(caso, plan, estadoLlc, r.socios.length)}` : "",
     ].join("\n");
     try {
       await navigator.clipboard.writeText(texto);
@@ -446,7 +665,7 @@ export function FormationWizard({
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
       <aside className="lg:col-span-4">
         <div className="lg:sticky lg:top-28">
-          {plan && r.punto === "crear" && (
+          {plan && r.punto === "crear" && r.tipo !== "llc-2" && (
             <p className="mb-5 rounded-2xl bg-chancla/10 px-4 py-3 text-sm text-tinta">
               Plan elegido: <strong>{PLANES_ASISTENTE[plan]}</strong>
             </p>
@@ -537,7 +756,7 @@ export function FormationWizard({
                 titulo={r.punto === "crear" ? "¿Cómo será tu LLC?" : "¿Cómo es tu LLC?"}
                 texto={
                   r.punto === "crear"
-                    ? "Los planes Básico y Estándar son para LLC de un socio. Varios socios o una C-Corp van por encargo personalizado."
+                    ? "Abrimos online LLC de un socio y de varios socios (hasta 10). Las C-Corp las vemos contigo."
                     : "El servicio de Formularios LLC es para LLC de un solo socio."
                 }
               >
@@ -548,12 +767,45 @@ export function FormationWizard({
                       name="tipo"
                       value={t.value}
                       checked={r.tipo === t.value}
-                      onChange={() => set("tipo", t.value)}
+                      onChange={() => {
+                        if (t.value !== r.tipo) setMaxPaso((m) => Math.min(m, indiceDe("tipo")));
+                        set("tipo", t.value);
+                      }}
                       titulo={t.titulo}
                       texto={t.texto}
                     />
                   ))}
                 </RadioGroup>
+                {esVarios && (
+                  <p className="mt-5 rounded-2xl bg-agua/40 p-4 text-tinta/80">
+                    Una LLC de varios socios necesita un Operating Agreement hecho para vosotros. Te lo preparamos.
+                  </p>
+                )}
+                {esCrear && r.tipo === "llc-1" && (
+                  <div className="mt-8">
+                    <p className="font-semibold text-tinta">¿Eres ciudadano estadounidense o residente fiscal en EE. UU.?</p>
+                    <div className="mt-3">
+                      <RadioGroup name="residenteEeuu" label="Ciudadano o residente fiscal en EE. UU." error={desvio ? undefined : errores.residenteEeuu} columns={2}>
+                        <OptionCard
+                          name="residenteEeuu"
+                          value="no"
+                          checked={r.residenteEeuu === "no"}
+                          onChange={() => set("residenteEeuu", "no")}
+                          titulo="No"
+                          compact
+                        />
+                        <OptionCard
+                          name="residenteEeuu"
+                          value="si"
+                          checked={r.residenteEeuu === "si"}
+                          onChange={() => set("residenteEeuu", "si")}
+                          titulo="Sí"
+                          compact
+                        />
+                      </RadioGroup>
+                    </div>
+                  </div>
+                )}
                 {r.punto === "anual" && (
                   <div className="mt-8">
                     <p className="font-semibold text-tinta">
@@ -592,36 +844,39 @@ export function FormationWizard({
             {idPaso === "estado" && (
               <Paso
                 headingRef={headingRef}
-                titulo={
-                  r.punto === "crear" ? "¿En qué estado la registramos?" : "¿En qué estado está registrada?"
-                }
+                titulo={esCrear ? "¿En qué estado la registramos?" : "¿En qué estado está registrada?"}
                 texto={
-                  r.punto === "crear"
-                    ? "Los planes Básico y Estándar registran tu LLC en el Estado de Nuevo México. Si la quieres en otro estado, lo vemos en el encargo personalizado."
+                  esCrear
+                    ? "El precio es el del plan más la tasa del estado. En Nuevo México la tasa va incluida."
                     : "Lo encontrarás en tus Articles of Organization."
                 }
               >
-                <RadioGroup name="estado" label="Estado" error={errores.estado} columns={3}>
-                  {estadosConstitucionDestacados.map((e) => (
+                {esCrear ? (
+                  <RadioGroup name="estado" label="Estado" error={desvio ? undefined : errores.estado} columns={2}>
+                    {ESTADOS_LLC.map((e) => (
+                      <OptionCard
+                        key={e.clave}
+                        name="estado"
+                        value={e.clave}
+                        checked={r.estado === e.clave}
+                        onChange={() => set("estado", e.clave)}
+                        titulo={e.nombre}
+                        texto={
+                          esVarios
+                            ? `${precioAperturaVarios(e.clave, MIN_SOCIOS).texto}, con ${MIN_SOCIOS} socios`
+                            : precioApertura(e.clave, plan ?? "basico").texto
+                        }
+                        compact
+                      />
+                    ))}
                     <OptionCard
-                      key={e}
                       name="estado"
-                      value={e}
-                      checked={r.estado === e}
-                      onChange={() => set("estado", e)}
-                      titulo={e}
+                      value="otro"
+                      checked={r.estado === "otro"}
+                      onChange={() => set("estado", "otro")}
+                      titulo="Otro estado"
                       compact
                     />
-                  ))}
-                  <OptionCard
-                    name="estado"
-                    value="otro"
-                    checked={r.estado === "otro"}
-                    onChange={() => set("estado", "otro")}
-                    titulo="Otro estado"
-                    compact
-                  />
-                  {r.punto === "crear" && (
                     <OptionCard
                       name="estado"
                       value="no-se"
@@ -630,10 +885,32 @@ export function FormationWizard({
                       titulo="Aún no lo sé"
                       compact
                     />
-                  )}
-                </RadioGroup>
+                  </RadioGroup>
+                ) : (
+                  <RadioGroup name="estado" label="Estado" error={errores.estado} columns={3}>
+                    {estadosConstitucionDestacados.map((e) => (
+                      <OptionCard
+                        key={e}
+                        name="estado"
+                        value={e}
+                        checked={r.estado === e}
+                        onChange={() => set("estado", e)}
+                        titulo={e}
+                        compact
+                      />
+                    ))}
+                    <OptionCard
+                      name="estado"
+                      value="otro"
+                      checked={r.estado === "otro"}
+                      onChange={() => set("estado", "otro")}
+                      titulo="Otro estado"
+                      compact
+                    />
+                  </RadioGroup>
+                )}
 
-                {r.estado === "otro" && (
+                {!esCrear && r.estado === "otro" && (
                   <div className="mt-5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
                     <Label htmlFor="otroEstado" className="font-semibold">
                       Elige el estado
@@ -658,6 +935,279 @@ export function FormationWizard({
                   </div>
                 )}
 
+                {desvio === "noSe" && <TarjetaNoSe onElegirNuevoMexico={elegirNuevoMexico} />}
+              </Paso>
+            )}
+
+            {idPaso === "numSocios" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Cuántos socios sois?"
+                texto={`De ${MIN_SOCIOS} a ${MAX_SOCIOS} socios. El precio se actualiza al cambiar el número.`}
+              >
+                <RadioGroup name="numSocios" label="Número de socios" error={desvio ? undefined : errores.numSocios} columns={3}>
+                  {Array.from({ length: MAX_SOCIOS - MIN_SOCIOS + 1 }, (_, i) => i + MIN_SOCIOS).map((n) => (
+                    <OptionCard
+                      key={n}
+                      name="numSocios"
+                      value={String(n)}
+                      checked={r.numSocios === n}
+                      onChange={() => cambiarNumSocios(n)}
+                      titulo={`${n} socios`}
+                      compact
+                    />
+                  ))}
+                  <OptionCard
+                    name="numSocios"
+                    value={MAS_DE_DIEZ}
+                    checked={r.numSocios === MAS_DE_DIEZ}
+                    onChange={() => cambiarNumSocios(MAS_DE_DIEZ)}
+                    titulo={`Más de ${MAX_SOCIOS}`}
+                    compact
+                  />
+                </RadioGroup>
+                {estadoLlc && typeof r.numSocios === "number" && (
+                  <PrecioVarios estado={estadoLlc} socios={r.numSocios} />
+                )}
+              </Paso>
+            )}
+
+            {idPaso === "socios" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="Datos de cada socio"
+                texto="Sin pasaporte: solo lo que necesitamos para el alta y el Operating Agreement. Los porcentajes tienen que sumar 100 %."
+              >
+                <ol className="space-y-5">
+                  {r.socios.map((socio, i) => (
+                    <li key={i}>
+                      <FichaSocio
+                        indice={i}
+                        socio={socio}
+                        errores={errores}
+                        onCambiar={(k, v) => cambiarSocio(i, k, v)}
+                        onQuitar={r.socios.length > MIN_SOCIOS ? () => quitarSocio(i) : undefined}
+                      />
+                    </li>
+                  ))}
+                </ol>
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                  {r.socios.length < MAX_SOCIOS ? (
+                    <button
+                      type="button"
+                      onClick={() => cambiarNumSocios(r.socios.length + 1)}
+                      className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-chancla-2 ring-1 ring-chancla/30 transition hover:bg-chancla/10 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none"
+                    >
+                      <Plus className="size-4" aria-hidden="true" /> Añadir socio
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <SumaPorcentajes socios={r.socios} />
+                </div>
+                {estadoLlc && <PrecioVarios estado={estadoLlc} socios={r.socios.length} />}
+                {errores.socios && !desvio && (
+                  <FieldError id="socios-error" className="mt-4">
+                    {errores.socios}
+                  </FieldError>
+                )}
+              </Paso>
+            )}
+
+            {idPaso === "interlocutor" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Quién será nuestra persona de contacto?"
+                texto="Recibe nuestros emails y acepta la solicitud en nombre de todos los socios."
+              >
+                <RadioGroup name="interlocutor" label="Persona de contacto" error={errores.interlocutor}>
+                  {r.socios.map((s, i) => (
+                    <OptionCard
+                      key={i}
+                      name="interlocutor"
+                      value={String(i)}
+                      checked={r.interlocutor === i}
+                      onChange={() => set("interlocutor", i)}
+                      titulo={nombreSocio(i)}
+                      texto={s.email.trim()}
+                      compact
+                    />
+                  ))}
+                </RadioGroup>
+                <div className="mt-6">
+                  <TextField
+                    id="telefono"
+                    label="Su teléfono (con prefijo)"
+                    optional
+                    type="tel"
+                    value={r.telefono}
+                    onChange={(v) => set("telefono", v)}
+                    error={errores.telefono}
+                    autoComplete="tel"
+                    inputMode="tel"
+                    maxLength={40}
+                    placeholder="+34 600 000 000"
+                  />
+                </div>
+              </Paso>
+            )}
+
+            {idPaso === "gestion" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="¿Quién decide el día a día?"
+                texto="Lo necesitamos para el Operating Agreement: quién firma, contrata y lleva la LLC en el día a día."
+              >
+                <RadioGroup name="gestion" label="Gestión de la LLC" error={errores.gestion}>
+                  <OptionCard
+                    name="gestion"
+                    value="todos"
+                    checked={r.gestion === "todos"}
+                    onChange={() => set("gestion", "todos")}
+                    titulo={GESTION.todos}
+                    texto="Todos los socios deciden y pueden actuar por la LLC."
+                  />
+                  <OptionCard
+                    name="gestion"
+                    value="gestores"
+                    checked={r.gestion === "gestores"}
+                    onChange={() => set("gestion", "gestores")}
+                    titulo={GESTION.gestores}
+                    texto="Solo algunos socios llevan la gestión; el resto participa en la propiedad."
+                  />
+                </RadioGroup>
+                {r.gestion === "gestores" && (
+                  <fieldset className="mt-6" aria-describedby={errores.gestores ? "gestores-error" : undefined}>
+                    <legend className="font-semibold text-tinta">¿Quiénes?</legend>
+                    <div className="mt-3 space-y-2">
+                      {r.socios.map((_, i) => (
+                        <label key={i} className="flex cursor-pointer items-center gap-3 text-tinta/80">
+                          <input
+                            type="checkbox"
+                            data-campo={i === 0 ? "gestores" : undefined}
+                            checked={r.gestores.includes(i)}
+                            onChange={(e) =>
+                              set(
+                                "gestores",
+                                e.target.checked ? [...r.gestores, i] : r.gestores.filter((g) => g !== i),
+                              )
+                            }
+                            className="size-5 shrink-0 accent-[var(--chancla)]"
+                          />
+                          {nombreSocio(i)}
+                        </label>
+                      ))}
+                    </div>
+                    {errores.gestores && (
+                      <FieldError id="gestores-error" className="mt-3">
+                        {errores.gestores}
+                      </FieldError>
+                    )}
+                  </fieldset>
+                )}
+              </Paso>
+            )}
+
+            {idPaso === "reparto" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="Reparto y salida"
+                texto="Dos preguntas más para el Operating Agreement. Lo que nos digáis lo revisamos con vosotros."
+              >
+                <p className="font-semibold text-tinta">¿Cómo os repartís los beneficios?</p>
+                <div className="mt-3">
+                  <RadioGroup name="reparto" label="Reparto de beneficios" error={errores.reparto}>
+                    <OptionCard
+                      name="reparto"
+                      value="porcentaje"
+                      checked={r.reparto === "porcentaje"}
+                      onChange={() => set("reparto", "porcentaje")}
+                      titulo={REPARTO.porcentaje}
+                      compact
+                    />
+                    <OptionCard
+                      name="reparto"
+                      value="otro"
+                      checked={r.reparto === "otro"}
+                      onChange={() => set("reparto", "otro")}
+                      titulo="Otro"
+                      compact
+                    />
+                  </RadioGroup>
+                </div>
+                {r.reparto === "otro" && (
+                  <div className="mt-4">
+                    <AreaTexto
+                      id="repartoOtro"
+                      label="Cuéntanos cómo os vais a repartir los beneficios"
+                      value={r.repartoOtro}
+                      onChange={(v) => set("repartoOtro", v)}
+                      error={errores.repartoOtro}
+                      maxLength={2000}
+                      rows={3}
+                    />
+                  </div>
+                )}
+                <p className="mt-8 font-semibold text-tinta">
+                  ¿Queréis pactar algo especial si un socio quiere salir o vender su parte?
+                </p>
+                <div className="mt-3">
+                  <RadioGroup name="pactoSalida" label="Pacto de salida" error={errores.pactoSalida} columns={2}>
+                    <OptionCard
+                      name="pactoSalida"
+                      value="si"
+                      checked={r.pactoSalida === "si"}
+                      onChange={() => set("pactoSalida", "si")}
+                      titulo="Sí"
+                      compact
+                    />
+                    <OptionCard
+                      name="pactoSalida"
+                      value="no"
+                      checked={r.pactoSalida === "no"}
+                      onChange={() => set("pactoSalida", "no")}
+                      titulo="No"
+                      compact
+                    />
+                  </RadioGroup>
+                </div>
+              </Paso>
+            )}
+
+            {idPaso === "domicilio" && (
+              <Paso
+                headingRef={headingRef}
+                titulo="Dirección y actividad"
+                texto="La dirección de la persona de contacto (tiene que poder recibir correspondencia) y a qué se va a dedicar la LLC."
+              >
+                <div className="space-y-6">
+                  <AreaTexto
+                    id="direccion"
+                    label="Dirección completa de la persona de contacto"
+                    value={r.direccion}
+                    onChange={(v) => set("direccion", v)}
+                    error={errores.direccion}
+                    maxLength={300}
+                    rows={3}
+                    placeholder="Calle, número, piso/puerta, CP, localidad, provincia y país"
+                    hint="Calle, número, piso/puerta, código postal, localidad, provincia y país."
+                  />
+                  <AreaTexto
+                    id="actividad"
+                    label="Resumen de la actividad de la LLC"
+                    value={r.actividad}
+                    onChange={(v) => set("actividad", v)}
+                    error={errores.actividad}
+                    maxLength={2000}
+                    rows={5}
+                    placeholder="Por ejemplo: agencia de desarrollo web con clientes en Europa y Latinoamérica."
+                    hint={
+                      r.actividad.trim().length < MIN_ACTIVIDAD
+                        ? `Mínimo ${MIN_ACTIVIDAD} caracteres · llevas ${r.actividad.trim().length}`
+                        : `${r.actividad.trim().length} caracteres`
+                    }
+                  />
+                </div>
               </Paso>
             )}
 
@@ -1002,7 +1552,11 @@ export function FormationWizard({
               <Paso
                 headingRef={headingRef}
                 titulo="Último paso"
-                texto="Revisa y acepta las condiciones. Al continuar, guardamos tus datos de alta."
+                texto={
+                  esVarios
+                    ? "La persona de contacto acepta las condiciones en nombre de todos los socios. Al continuar, guardamos vuestros datos de alta."
+                    : "Revisa y acepta las condiciones. Al continuar, guardamos tus datos de alta."
+                }
               >
                 <div className="space-y-4">
                   <label className="flex cursor-pointer items-start gap-3 text-tinta/80">
@@ -1015,7 +1569,7 @@ export function FormationWizard({
                       aria-invalid={!!errores.aceptaTerminos}
                     />
                     <span>
-                      Acepto los{" "}
+                      {esVarios ? "En nombre de todos los socios, acepto los" : "Acepto los"}{" "}
                       <Link
                         href="/legal"
                         target="_blank"
@@ -1049,8 +1603,8 @@ export function FormationWizard({
                       aria-invalid={!!errores.consentimiento}
                     />
                     <span>
-                      Acepto que Negocios en Chanclas use estos datos para preparar mi alta y responder a mi
-                      consulta, según su{" "}
+                      Acepto que Negocios en Chanclas use estos datos para preparar {esVarios ? "el alta" : "mi alta"} y
+                      responder a {esVarios ? "nuestra" : "mi"} consulta, según su{" "}
                       <Link href="/legal" className="font-medium text-tinta underline underline-offset-2">
                         política de privacidad
                       </Link>
@@ -1060,9 +1614,29 @@ export function FormationWizard({
                       )}
                     </span>
                   </label>
+                  {esVarios && (
+                    <label className="flex cursor-pointer items-start gap-3 text-sm text-tinta/70">
+                      <input
+                        type="checkbox"
+                        data-campo="confirmaSocios"
+                        checked={r.confirmaSocios}
+                        onChange={(e) => set("confirmaSocios", e.target.checked)}
+                        className="mt-0.5 size-5 shrink-0 accent-[var(--chancla)]"
+                        aria-invalid={!!errores.confirmaSocios}
+                      />
+                      <span>
+                        Confirmo que los demás socios conocen y aceptan esta solicitud.
+                        {errores.confirmaSocios && (
+                          <span className="mt-1 block font-medium text-destructive">{errores.confirmaSocios}</span>
+                        )}
+                      </span>
+                    </label>
+                  )}
                 </div>
               </Paso>
             )}
+
+            {desvio && desvio !== "noSe" && <TarjetaDesvio desvio={desvio} />}
 
             {errorEnvio && idPaso !== "contacto" && (
               <p role="alert" className="mt-5 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">
@@ -1091,6 +1665,7 @@ export function FormationWizard({
               ) : (
                 <span className="hidden sm:block" />
               )}
+              {!desvio && (
               <button
                 type="submit"
                 disabled={enviando || pasoInvalido}
@@ -1099,12 +1674,14 @@ export function FormationWizard({
                 {textoBoton}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
               </button>
+              )}
             </div>
           </form>
         ) : (
           <Resultado
             headingRef={headingRef}
             r={r}
+            estado={estadoLlc}
             caso={caso}
             plan={plan}
             referencia={referencia}
@@ -1243,7 +1820,7 @@ function RadioGroup({
   name: string;
   label: string;
   error?: string;
-  columns?: 1 | 3;
+  columns?: 1 | 2 | 3;
   children: React.ReactNode;
 }) {
   return (
@@ -1252,6 +1829,7 @@ function RadioGroup({
       <div
         className={cn(
           "grid grid-cols-1 gap-3",
+          columns === 2 && "sm:grid-cols-2",
           columns === 3 && "sm:grid-cols-2 md:grid-cols-3",
         )}
       >
@@ -1339,7 +1917,10 @@ function TextField({
   placeholder,
   maxLength = 200,
   inputMode,
+  campo,
 }: {
+  /** `data-campo` para enfocar el primer error (por defecto, el id). */
+  campo?: string;
   id: string;
   label: string;
   value: string;
@@ -1361,7 +1942,7 @@ function TextField({
       </Label>
       <Input
         id={id}
-        data-campo={id}
+        data-campo={campo ?? id}
         type={type}
         value={value}
         maxLength={maxLength}
@@ -1395,9 +1976,15 @@ function FieldError({
 }
 
 /** Texto corto del siguiente paso, para el resumen copiado. */
-function siguientePaso(caso: Caso, plan?: PlanAsistente): string {
-  if (caso === "plan") return plan ? PLANES_ASISTENTE[plan] : "Plan Básico o Plan Estándar";
-  if (caso === "encargo") return `${planEncargo.nombre} (${planEncargo.precio})`;
+function siguientePaso(caso: Caso, plan: PlanAsistente | undefined, estado: ClaveEstadoLlc | null, socios: number): string {
+  if (caso === "plan") {
+    if (!estado) return "Plan Básico o Plan Estándar";
+    const planes = plan ? [plan] : (["basico", "estandar"] as const);
+    return planes.map((p) => `${PLANES_APERTURA[p].nombre}: ${precioApertura(estado, p).texto}`).join(" · ");
+  }
+  if (caso === "varios") {
+    return estado ? `LLC de varios socios: ${precioAperturaVarios(estado, socios).texto}` : "LLC de varios socios";
+  }
   if (caso === "formularios") return `${formulariosLlc.nombre} (${formulariosLlc.precio})`;
   if (caso === "cierre") return `Cierre de LLC (${cierreLlc.precioCompleto})`;
   return "Hablar con nosotros";
@@ -1409,6 +1996,7 @@ const AVISO_BANCO =
 function Resultado({
   headingRef,
   r,
+  estado,
   caso,
   plan,
   referencia,
@@ -1420,6 +2008,7 @@ function Resultado({
 }: {
   headingRef: React.RefObject<HTMLHeadingElement | null>;
   r: Respuestas;
+  estado: ClaveEstadoLlc | null;
   caso: Caso | null;
   plan?: PlanAsistente;
   referencia: string | null;
@@ -1431,78 +2020,138 @@ function Resultado({
 }) {
   const [planElegido, setPlanElegido] = useState<PlanAsistente | undefined>(plan);
   if (!caso || caso === "cierre") return null;
-  const nombrePila = r.nombre.trim().split(/\s+/)[0];
+  const interlocutor = caso === "varios" && r.interlocutor != null ? r.socios[r.interlocutor] : null;
+  const nombreCompleto = interlocutor ? interlocutor.nombre : r.nombre;
+  const nombrePila = nombreCompleto.trim().split(/\s+/)[0];
   const saludo = nombrePila ? `${nombrePila}, ` : "";
+  const email = (interlocutor ? interlocutor.email : r.email).trim().toLowerCase();
   const planActual = planElegido === "estandar" ? planEstandar : planElegido === "basico" ? planBasico : null;
   const otroPlan = planElegido === "estandar" ? planBasico : planEstandar;
-  const email = r.email.trim().toLowerCase();
 
   let titular: React.ReactNode;
   let cuerpo: React.ReactNode;
-  if (caso === "plan") {
+  let confirmacion: React.ReactNode;
+  if (caso === "plan" && estado) {
+    const renovacion = precioRenovacion(estado);
     titular = planActual ? (
       <>
         {saludo}lo tuyo es el <span className="font-serif font-normal text-chancla italic">{planActual.nombre}.</span>
       </>
     ) : (
       <>
-        {saludo}lo tuyo es <span className="font-serif font-normal text-chancla italic">constituir tu LLC.</span>
+        {saludo}lo tuyo es constituir tu LLC en{" "}
+        <span className="font-serif font-normal text-chancla italic">{nombreEstado(estado)}.</span>
       </>
     );
     cuerpo = (
       <>
-        {r.estado !== ESTADO_PLANES && (
-          <p className="mt-3 max-w-xl text-arena/70">Registramos tu LLC en el Estado de Nuevo México.</p>
-        )}
+        <p className="mt-3 max-w-xl text-arena/70">
+          Registramos tu LLC en {nombreEstado(estado)}.
+        </p>
         <div className={cn("mt-7 grid grid-cols-1 gap-4", !planActual && "md:grid-cols-2")}>
           {(planActual ? [planActual] : [planBasico, planEstandar]).map((p) => (
-            <TarjetaPlan key={p.id} plan={p} referencia={referencia} email={email} />
+            <TarjetaPlan
+              key={p.id}
+              plan={p}
+              estado={estado}
+              renovacion={renovacion.texto}
+              referencia={referencia}
+              email={email}
+            />
           ))}
         </div>
         {email && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(email)}</p>}
+        <p className="mt-2 max-w-xl text-sm text-arena/60">{avisoPagoApertura}</p>
         {planActual && (
           <button
             type="button"
             onClick={() => setPlanElegido(otroPlan.id as PlanAsistente)}
             className="mt-4 text-sm font-semibold text-sol underline underline-offset-4"
           >
-            Prefiero el {otroPlan.nombre} ({otroPlan.precio} primer año)
+            Prefiero el {otroPlan.nombre} ({precioApertura(estado, otroPlan.id as PlanApertura).texto})
           </button>
         )}
         <p className="mt-6 text-sm text-arena/60">{AVISO_BANCO}</p>
       </>
     );
-  } else if (caso === "encargo") {
-    const motivo =
-      r.tipo === "corp"
-        ? "Las C-Corp las hacemos a medida, hablando contigo 1 a 1."
-        : r.tipo === "llc-2"
-          ? "Los planes Básico y Estándar son para LLC de un socio. Una LLC de dos o más miembros va por encargo."
-          : "Los planes Básico y Estándar registran la LLC en Nuevo México. Si la quieres en otro estado, lo vemos en el encargo personalizado.";
+    confirmacion = (
+      <Confirmacion
+        titulo="¡Recibido! Ya tenemos tus datos de alta."
+        queAhora={`Cuando pagues, empezamos con tu LLC y te escribimos a ${email} con cada paso.`}
+        cuando={`Tu LLC estará lista en ${PLAZO} desde el pago.`}
+        orientativo
+      />
+    );
+  } else if (caso === "varios" && estado) {
+    const socios = r.socios.length;
+    const precio = precioAperturaVarios(estado, socios);
+    const pago = enlacePago("varios", precio.total);
     titular = (
       <>
-        {saludo}lo tuyo es un{" "}
-        <span className="font-serif font-normal text-chancla italic">{planEncargo.nombre.toLowerCase()}.</span>
+        {saludo}lo vuestro es una{" "}
+        <span className="font-serif font-normal text-chancla italic">LLC de varios socios.</span>
       </>
     );
     cuerpo = (
       <>
-        <p className="mt-3 max-w-xl text-arena/70">
-          {planEncargo.servicio}. «{planEncargo.lema}»
+        <p className="mt-7 font-display text-3xl font-extrabold md:text-4xl">{precio.texto}</p>
+        <p className="mt-2 text-sm text-arena/70">
+          {socios} socios en {nombreEstado(estado)}. Renovación anual: {precioRenovacion(estado).texto}/año, a partir del
+          segundo año.
         </p>
-        <p className="mt-7 font-display text-3xl font-extrabold">{planEncargo.precio}</p>
-        <p className="mt-4 max-w-xl text-arena/85">{planEncargo.incluye[0]}</p>
-        <p className="mt-3 max-w-xl text-arena/70">{motivo}</p>
-        <p className="mt-7 rounded-2xl bg-arena/10 p-4 text-sm text-arena/80">
-          <strong className="text-arena">
-            {r.punto === "crear" ? "Ya tenemos tus datos de alta:" : "Ya tenemos tu nombre y tu email:"}
-          </strong>{" "}
-          te escribimos para conocer tu caso.
+        <ul className="mt-6 space-y-2.5">
+          {[
+            `Registro de la LLC en ${nombreEstado(estado)}`,
+            "Agente registrador y dirección postal durante 1 año",
+            "EIN",
+            "Operating Agreement modelo para varios socios, con los porcentajes, la gestión y el reparto que nos habéis indicado",
+            `${PLAZO.charAt(0).toUpperCase()}${PLAZO.slice(1)}. ${AVISO_PLAZO}`,
+            "Entrega por email",
+          ].map((item) => (
+            <li key={item} className="flex gap-3 text-arena/85">
+              <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-chancla text-white">
+                <Check className="size-3" strokeWidth={3} aria-hidden="true" />
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-6 rounded-2xl bg-sol/15 p-4 text-sm text-arena/90">
+          Cada año, una LLC de varios socios presenta ante el IRS el <strong>Form 1065 y un K-1 por socio</strong>{" "}
+          (antes del 15 de marzo). No está incluido en la apertura; te lo preparamos y presentamos aparte,{" "}
+          {TEXTOS_PRECIO.formularios1065Desde}.
         </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <CtaLink href={CONTACTO_ENCARGO}>Cuéntanos tu caso</CtaLink>
+        <p className="mt-4 text-sm text-arena/60">{AVISO_BANCO}</p>
+        <div className="mt-7">
+          {pago ? (
+            <>
+              <CtaLink href={enlaceStripe(pago, { id: referencia, email })}>Pagar {dolares(precio.total)}</CtaLink>
+              {email && (
+                <p className="mt-4 max-w-xl text-sm text-arena/85">
+                  Usa en Stripe el mismo email que nos has dado ({email}). Así unimos vuestro pago con vuestros datos.
+                </p>
+              )}
+              <p className="mt-2 max-w-xl text-sm text-arena/60">{avisoPagoApertura}</p>
+            </>
+          ) : (
+            <PagoPorContacto
+              email={email}
+              contactoHref={enlaceContacto(
+                "arranque",
+                `Queremos pagar la LLC de varios socios (${socios} socios, ${nombreEstado(estado)}): ${dolares(precio.total)}.`,
+              )}
+            />
+          )}
         </div>
       </>
+    );
+    confirmacion = (
+      <Confirmacion
+        titulo="¡Recibido! Ya tenemos vuestros datos de alta."
+        queAhora="Cuando paguéis, empezamos con vuestra LLC y os escribimos con el borrador del Operating Agreement para que lo reviséis."
+        cuando={`La LLC estará lista en ${PLAZO} desde el pago.`}
+        orientativo
+      />
     );
   } else if (caso === "formularios") {
     titular = (
@@ -1515,6 +2164,7 @@ function Resultado({
       <>
         <p className="mt-3 max-w-xl text-arena/70">{formulariosLlc.descripcion}</p>
         <p className="mt-7 font-display text-3xl font-extrabold">{formulariosLlc.precio}</p>
+        <p className="mt-2 max-w-xl text-sm text-arena/70">{formulariosLlc.alcance}</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           {formulariosAbiertos ? (
             <CtaLink href="/formularios-llc">Presentar mis formularios</CtaLink>
@@ -1523,6 +2173,11 @@ function Resultado({
           )}
         </div>
       </>
+    );
+    confirmacion = (
+      <Confirmacion
+        queAhora={`Hemos guardado tus respuestas. Si tienes cualquier duda, te escribimos a ${email}.`}
+      />
     );
   } else {
     titular = (
@@ -1535,7 +2190,7 @@ function Resultado({
       <>
         <p className="mt-3 max-w-xl text-arena/70">
           {r.tipo === "llc-2"
-            ? requisitosFormularios[0]
+            ? `${formularios1065.texto} Escríbenos y lo preparamos contigo.`
             : "Si incumples alguno de los requisitos o tienes dudas, lo mejor es que te pongas en contacto con nosotros."}
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -1546,6 +2201,7 @@ function Resultado({
         </div>
       </>
     );
+    confirmacion = <Confirmacion queAhora={`Hemos guardado tus respuestas: te escribimos a ${email}.`} />;
   }
 
   return (
@@ -1589,6 +2245,8 @@ function Resultado({
         </section>
       )}
 
+      <section className="rounded-[2rem] border border-tinta/10 bg-card p-7 sm:p-9">{confirmacion}</section>
+
       <section className="rounded-[2rem] border border-tinta/10 bg-card p-7 sm:p-9">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-xl font-bold">Tus respuestas</h3>
@@ -1627,31 +2285,40 @@ function Resultado({
             </div>
           ))}
         </dl>
-        <p className="mt-4 flex items-start gap-2 text-sm text-tinta/55">
-          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Hemos guardado tus respuestas. Te escribiremos a {r.email.trim()}.
-        </p>
       </section>
     </div>
   );
 }
 
-/** Plan Básico o Estándar, con el mismo contenido que las tarjetas de la home. */
-function TarjetaPlan({ plan, referencia, email }: { plan: Plan; referencia: string | null; email: string }) {
+/** Plan Básico o Estándar con el precio del estado elegido. Sin enlace de Stripe para ese importe, a contacto. */
+function TarjetaPlan({
+  plan,
+  estado,
+  renovacion,
+  referencia,
+  email,
+}: {
+  plan: Plan;
+  estado: ClaveEstadoLlc;
+  renovacion: string;
+  referencia: string | null;
+  email: string;
+}) {
+  const id = plan.id as PlanApertura;
+  const precio = precioApertura(estado, id);
+  const pago = enlacePago(id, precio.total);
   return (
     <article className="flex flex-col rounded-3xl bg-arena/10 p-6">
       <p className="font-mono text-xs tracking-[0.16em] text-sol uppercase">{plan.servicio}</p>
       <h3 className="mt-2 text-2xl font-bold">{plan.nombre}</h3>
       <p className="mt-1 text-arena/70">«{plan.lema}»</p>
-      <p className="mt-5 font-display text-4xl font-extrabold">
-        {plan.precio}
-        {plan.precioNota && (
-          <span className="ml-2 font-sans text-base font-semibold text-arena/70">{plan.precioNota}</span>
-        )}
+      <p className="mt-5 font-display text-2xl font-extrabold">
+        {precio.texto}
+        <span className="ml-2 font-sans text-base font-semibold text-arena/70">(primer año)*</span>
       </p>
-      {plan.aviso && <p className="mt-2 text-xs text-arena/60">{plan.aviso}</p>}
+      <p className="mt-2 text-xs text-arena/60">*Renovación anual: {renovacion}/año, a partir del segundo año.</p>
       <ul className="mt-5 flex-1 space-y-2.5">
-        {plan.incluye.map((item) => (
+        {[`Registro de la LLC en ${nombreEstado(estado)}`, ...plan.incluye.filter((i) => i !== incluyeApertura[0])].map((item) => (
           <li key={item} className="flex gap-3 text-arena/85">
             <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-chancla text-white">
               <Check className="size-3" strokeWidth={3} aria-hidden="true" />
@@ -1660,18 +2327,208 @@ function TarjetaPlan({ plan, referencia, email }: { plan: Plan; referencia: stri
           </li>
         ))}
       </ul>
-      <CtaLink href={enlaceStripe(plan.pago ?? plan.href, { id: referencia, email })} className="mt-6 w-full">
-        {plan.cta}
-      </CtaLink>
+      {pago ? (
+        <CtaLink href={enlaceStripe(pago, { id: referencia, email })} className="mt-6 w-full">
+          {plan.cta}
+        </CtaLink>
+      ) : (
+        <div className="mt-6">
+          <PagoPorContacto
+            email={email}
+            contactoHref={enlaceContacto(
+              "arranque",
+              `Quiero pagar el ${plan.nombre} en ${nombreEstado(estado)}: ${dolares(precio.total)}.`,
+            )}
+          />
+        </div>
+      )}
     </article>
   );
 }
 
-function pasoDeCampo(clave: string, esCrear: boolean): PasoId | undefined {
+/** Desvío a contacto con el servicio marcado y el mensaje empezado, y WhatsApp. */
+function TarjetaDesvio({ desvio }: { desvio: Exclude<Desvio, "noSe"> }) {
+  const d = DESVIOS[desvio];
+  return (
+    <div role="status" className="mt-8 rounded-[1.5rem] border-2 border-sol/70 bg-sol/15 p-5 animate-in fade-in duration-300">
+      <p className="text-tinta/85">{d.texto}</p>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <CtaLink href={enlaceContacto("arranque", d.mensaje)}>Escríbenos</CtaLink>
+        <a
+          href={contacto.whatsapp.espana.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 font-semibold text-tinta ring-1 ring-tinta/20 transition hover:bg-tinta/5"
+        >
+          <MessageCircle className="size-4" aria-hidden="true" />
+          WhatsApp {contacto.whatsapp.espana.visible}
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/** «Aún no lo sé» en el estado: tarjeta amable en lugar de «Continuar», con la salida «Elegir Nuevo México». */
+function TarjetaNoSe({ onElegirNuevoMexico }: { onElegirNuevoMexico: () => void }) {
+  const nm = precioApertura(ESTADO_REFERENCIA, "basico");
+  return (
+    <div role="status" className="mt-8 rounded-[1.5rem] bg-agua/40 p-6 animate-in fade-in duration-300">
+      <p className="text-tinta/85">
+        <strong className="text-tinta">{DESVIOS.noSe.titulo}</strong> {DESVIOS.noSe.texto}
+      </p>
+      <div className="mt-5 flex flex-col items-start gap-2">
+        <CtaLink href={enlaceContacto("arranque", DESVIOS.noSe.mensaje)}>Escríbenos</CtaLink>
+        <a
+          href={contacto.whatsapp.espana.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-semibold text-chancla-2 underline underline-offset-4"
+        >
+          o por WhatsApp
+        </a>
+      </div>
+      <p className="mt-6 text-sm text-tinta/75">
+        Pista: la mayoría de nuestros clientes la abren en {nombreEstado(ESTADO_REFERENCIA)} ({nm.texto}).
+      </p>
+      <button
+        type="button"
+        onClick={onElegirNuevoMexico}
+        className="mt-3 inline-flex h-11 items-center gap-2 rounded-full px-5 font-semibold text-tinta ring-1 ring-tinta/20 transition hover:bg-white/70 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none"
+      >
+        Elegir {nombreEstado(ESTADO_REFERENCIA)} <ArrowRight className="size-4" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+function PrecioVarios({ estado, socios }: { estado: ClaveEstadoLlc; socios: number }) {
+  const precio = precioAperturaVarios(estado, socios);
+  return (
+    <p className="mt-6 rounded-2xl bg-tinta p-4 text-arena" aria-live="polite">
+      <span className="block font-mono text-xs tracking-[0.16em] text-sol uppercase">
+        {socios} socios · {nombreEstado(estado)}
+      </span>
+      <span className="mt-1 block font-display text-2xl font-extrabold">{precio.texto}</span>
+    </p>
+  );
+}
+
+function SumaPorcentajes({ socios }: { socios: BorradorSocio[] }) {
+  const suma = socios.reduce((a, s) => a + (porcentajeDe(s.porcentaje) ?? 0), 0);
+  const ok = Math.abs(suma - 100) < 0.05;
+  return (
+    <p className={cn("text-sm font-semibold", ok ? "text-tinta/70" : "text-chancla-2")} aria-live="polite">
+      Suma: {Number(suma.toFixed(2)).toLocaleString("es-ES")} %{ok ? " ✓" : " (tiene que ser 100 %)"}
+    </p>
+  );
+}
+
+function FichaSocio({
+  indice,
+  socio,
+  errores,
+  onCambiar,
+  onQuitar,
+}: {
+  indice: number;
+  socio: BorradorSocio;
+  errores: Record<string, string>;
+  onCambiar: <K extends keyof BorradorSocio>(k: K, v: BorradorSocio[K]) => void;
+  onQuitar?: () => void;
+}) {
+  const e = (campo: string) => errores[`socios.${indice}.${campo}`];
+  const id = (campo: string) => `socio-${indice}-${campo}`;
+  return (
+    <fieldset className="rounded-[1.5rem] border border-tinta/10 bg-white/60 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <legend className="font-display text-lg font-bold text-tinta">Socio {indice + 1}</legend>
+        {onQuitar && (
+          <button
+            type="button"
+            onClick={onQuitar}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-tinta/60 ring-1 ring-tinta/15 transition hover:bg-tinta/5 hover:text-tinta"
+            aria-label={`Quitar el socio ${indice + 1}`}
+          >
+            <Trash2 className="size-4" aria-hidden="true" /> Quitar
+          </button>
+        )}
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TextField id={id("nombre")} label="Nombre completo" value={socio.nombre} onChange={(v) => onCambiar("nombre", v)} error={e("nombre")} maxLength={120} campo={indice === 0 ? "socios" : undefined} />
+        <TextField id={id("email")} label="Email" type="email" value={socio.email} onChange={(v) => onCambiar("email", v)} error={e("email")} inputMode="email" />
+        <TextField id={id("paisResidencia")} label="País de residencia" value={socio.paisResidencia} onChange={(v) => onCambiar("paisResidencia", v)} error={e("paisResidencia")} maxLength={80} />
+        <TextField id={id("nacionalidad")} label="Nacionalidad" value={socio.nacionalidad} onChange={(v) => onCambiar("nacionalidad", v)} error={e("nacionalidad")} maxLength={80} />
+        <TextField id={id("porcentaje")} label="Participación (%)" value={socio.porcentaje} onChange={(v) => onCambiar("porcentaje", v)} error={e("porcentaje")} maxLength={6} inputMode="decimal" placeholder="50" />
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <MiniRadio
+          name={id("tipo")}
+          label="¿Persona o empresa?"
+          value={socio.tipo}
+          opciones={Object.entries(TIPOS_SOCIO) as [BorradorSocio["tipo"] & string, string][]}
+          onChange={(v) => onCambiar("tipo", v)}
+          error={e("tipo")}
+        />
+        <MiniRadio
+          name={id("residenteEeuu")}
+          label="¿Ciudadano o residente fiscal en EE. UU.?"
+          value={socio.residenteEeuu}
+          opciones={[
+            ["no", "No"],
+            ["si", "Sí"],
+          ]}
+          onChange={(v) => onCambiar("residenteEeuu", v)}
+          error={e("residenteEeuu")}
+        />
+      </div>
+    </fieldset>
+  );
+}
+
+function MiniRadio<T extends string>({
+  name,
+  label,
+  value,
+  opciones,
+  onChange,
+  error,
+}: {
+  name: string;
+  label: string;
+  value: T | null;
+  opciones: [T, string][];
+  onChange: (v: T) => void;
+  error?: string;
+}) {
+  return (
+    <fieldset>
+      <legend className="text-sm font-semibold text-tinta">{label}</legend>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {opciones.map(([v, texto]) => (
+          <label
+            key={v}
+            className={cn(
+              "inline-flex h-10 cursor-pointer items-center rounded-full px-4 text-sm font-semibold ring-1 transition has-focus-visible:ring-4 has-focus-visible:ring-chancla/30",
+              value === v ? "bg-tinta text-arena ring-tinta" : "text-tinta/75 ring-tinta/20 hover:bg-tinta/5",
+            )}
+          >
+            <input type="radio" name={name} value={v} checked={value === v} onChange={() => onChange(v)} className="sr-only" />
+            {texto}
+          </label>
+        ))}
+      </div>
+      {error && <p className="mt-2 text-sm font-medium text-destructive">{error}</p>}
+    </fieldset>
+  );
+}
+
+function pasoDeCampo(clave: string, esCrear: boolean, esVarios: boolean): PasoId | undefined {
+  if (clave.startsWith("socios")) return "socios";
   if (clave === "nombre") return esCrear ? "titular" : "contacto";
   if (clave === "email") return esCrear ? "email" : "contacto";
-  if (clave === "telefono") return esCrear ? "telefono" : "contacto";
+  if (clave === "telefono") return esVarios ? "interlocutor" : esCrear ? "telefono" : "contacto";
   if (clave === "consentimiento") return esCrear ? "aceptacion" : "contacto";
+  if ((clave === "direccion" || clave === "actividad") && esVarios) return "domicilio";
   return PASO_DE_CAMPO[clave];
 }
 

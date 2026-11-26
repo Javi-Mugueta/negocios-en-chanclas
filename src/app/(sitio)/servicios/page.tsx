@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { CtaLink, Eyebrow } from "@/components/brand/cta";
 import { Reveal } from "@/components/reveal";
-import { AGENDA_15MIN } from "@/lib/site";
+import { dolares, LISTA_ESTADOS_CON_TASA, LISTA_ESTADOS_LLC, PLANES_APERTURA, RENOVACION, TEXTOS_PRECIO } from "@/lib/precios";
+import { AGENDA_15MIN, formulariosLlc } from "@/lib/site";
 import { formulariosVisibles } from "@/lib/visibilidad";
 
 export const metadata: Metadata = {
@@ -26,9 +27,9 @@ function servicios(formulariosAbiertos: boolean): Servicio[] {
       id: "apertura-llc",
       titulo: "Apertura de LLC",
       texto:
-        "Constituimos tu LLC en Estados Unidos con el plan que mejor encaje con tu negocio. Tienes todos los planes y lo que incluye cada uno en la página principal.",
-      precio: "Desde 397 $",
-      microcopy: "397 $ el primer año; renovación, 197 $/año (planes Básico y Estándar).",
+        "Constituimos tu LLC en Estados Unidos con el plan que mejor encaje con tu negocio, de un socio o de varios socios. Tienes todos los planes y lo que incluye cada uno en la página principal.",
+      precio: TEXTOS_PRECIO.aperturaDesde,
+      microcopy: `${dolares(PLANES_APERTURA.basico.precio)} el primer año en Nuevo México, tasa del estado incluida. También en ${LISTA_ESTADOS_CON_TASA} (+ tasa del estado). Renovación, ${dolares(RENOVACION)}/año + tasa anual del estado.`,
       cta: "Ver planes",
       href: "/#paquetes",
     },
@@ -47,8 +48,8 @@ function servicios(formulariosAbiertos: boolean): Servicio[] {
       titulo: "Cierre de LLC",
       texto:
         "¿Ya no usas tu LLC? Cerrarla bien evita que sigan corriendo cuotas anuales, agente registrado y obligaciones de un negocio que ya no tienes. Nos encargamos de todo: la disolución ante el estado y la última declaración ante el IRS (1120/5472 final).",
-      precio: "467 $ + tasas del estado",
-      microcopy: "Para LLC de Wyoming y Nuevo México. ¿Otro estado? Escríbenos y te damos presupuesto.",
+      precio: TEXTOS_PRECIO.cierre,
+      microcopy: `Para LLC de ${LISTA_ESTADOS_LLC}. La tasa depende del estado (en Utah, 0 $). ¿Otro estado? Escríbenos y te damos presupuesto.`,
       cta: "Cierra tu LLC",
       href: "/cierra-tu-llc",
     },
@@ -57,7 +58,7 @@ function servicios(formulariosAbiertos: boolean): Servicio[] {
       titulo: "Cambio de titularidad de LLC",
       texto:
         "Si vendes o traspasas tu LLC a otra persona, hay que documentar bien la transmisión y dejarla en orden ante el estado. Lo preparamos para que el nuevo dueño reciba una empresa limpia.",
-      precio: "567 $ + tasas del estado, si las hay",
+      precio: TEXTOS_PRECIO.cambioTitularidad,
       microcopy: "Algunos estados cobran tasas por este trámite y otros no. Te lo confirmamos antes de empezar.",
       cta: "Solicitar cambio de titularidad",
       href: "/contacto?servicio=cambio-titularidad",
@@ -80,7 +81,7 @@ function servicios(formulariosAbiertos: boolean): Servicio[] {
           </ul>
         </>
       ),
-      precio: "Desde 697 $",
+      precio: TEXTOS_PRECIO.operatingAgreement,
       microcopy: "El presupuesto final depende de la complejidad de tu caso. Te lo damos cerrado tras la llamada.",
       cta: "Agenda tu llamada gratuita",
       href: AGENDA_15MIN,
@@ -99,7 +100,8 @@ function servicios(formulariosAbiertos: boolean): Servicio[] {
       titulo: "Formularios anuales 1120/5472",
       texto:
         "Si tu LLC es de un solo socio y no resides en EE. UU., cada año tienes que presentar al IRS el formulario 5472 junto a un 1120 pro forma. Nos pasas los datos y los movimientos del año, los preparamos y los presentamos por ti.",
-      precio: "169 $",
+      precio: formulariosLlc.precio,
+      microcopy: "Para LLC de cualquier estado. Solo formularios federales: las obligaciones de tu estado van aparte.",
       cta: "Presentar mis formularios",
       // Mientras /formularios-llc esté oculta (NEC_FORMULARIOS_LAUNCH), al contacto.
       href: formulariosAbiertos ? "/formularios-llc" : "/contacto?servicio=en-regla",

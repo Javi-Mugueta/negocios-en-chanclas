@@ -20,7 +20,7 @@ export const MAX_ACTIVIDAD = 2000;
 export const MIN_DIRECCION = 15;
 export const MAX_DIRECCION = 300;
 
-/** Pasos del alta, en orden. Van después de punto, tipo y estado. */
+/** Pasos del alta de una LLC de un socio, en orden. Van después de punto, tipo y estado. */
 export const PASOS_ALTA = [
   { id: "titular", label: "Titular" },
   { id: "email", label: "Email" },
@@ -32,7 +32,21 @@ export const PASOS_ALTA = [
   { id: "facturacion", label: "Facturación" },
   { id: "aceptacion", label: "Aceptación" },
 ] as const;
-export type PasoAlta = (typeof PASOS_ALTA)[number]["id"];
+
+/** Pasos del alta de una LLC de varios socios (`llc-varios-socios.md`, sección 4). */
+export const PASOS_ALTA_SOCIOS = [
+  { id: "numSocios", label: "Socios" },
+  { id: "socios", label: "Datos de los socios" },
+  { id: "interlocutor", label: "Persona de contacto" },
+  { id: "opciones", label: "Nombres de la LLC" },
+  { id: "gestion", label: "Gestión" },
+  { id: "reparto", label: "Reparto y salida" },
+  { id: "domicilio", label: "Dirección y actividad" },
+  { id: "facturacion", label: "Facturación" },
+  { id: "aceptacion", label: "Aceptación" },
+] as const;
+
+export type PasoAlta = (typeof PASOS_ALTA)[number]["id"] | (typeof PASOS_ALTA_SOCIOS)[number]["id"];
 
 /** Pasos del resto de casos («ya tengo LLC»): los de siempre. */
 export const PASOS_BASE = [
@@ -46,16 +60,72 @@ export const PASOS_CONSULTA = [
   { id: "contacto", label: "Contacto" },
 ] as const;
 export const PASOS_CREAR = [...PASOS_BASE, ...PASOS_ALTA] as const;
+export const PASOS_CREAR_SOCIOS = [...PASOS_BASE, ...PASOS_ALTA_SOCIOS] as const;
 
 export type PasoId = (typeof PASOS_CONSULTA)[number]["id"] | PasoAlta;
 export type PasoAsistente = { id: PasoId; label: string };
 
-export function pasosDe(punto: string | null): readonly PasoAsistente[] {
-  return punto === "crear" ? PASOS_CREAR : PASOS_CONSULTA;
+export function pasosDe(punto: string | null, tipo?: string | null): readonly PasoAsistente[] {
+  if (punto !== "crear") return PASOS_CONSULTA;
+  return tipo === "llc-2" ? PASOS_CREAR_SOCIOS : PASOS_CREAR;
 }
 
+const IDS_ALTA = new Set<string>([...PASOS_ALTA, ...PASOS_ALTA_SOCIOS].map((p) => p.id));
 export function esPasoAlta(id: PasoId): id is PasoAlta {
-  return PASOS_ALTA.some((p) => p.id === id);
+  return IDS_ALTA.has(id);
+}
+
+// --- Varios socios ---
+
+export const MIN_SOCIOS = 2;
+export const MAX_SOCIOS = 10;
+/** «Más de 10» en el selector de socios: desvía a contacto. */
+export const MAS_DE_DIEZ = "mas-10";
+
+export const TIPOS_SOCIO = { persona: "Persona", empresa: "Empresa" } as const;
+export type TipoSocio = keyof typeof TIPOS_SOCIO;
+export const GESTION = { todos: "Todos los socios", gestores: "Uno o varios gestores" } as const;
+export type Gestion = keyof typeof GESTION;
+export const REPARTO = { porcentaje: "Según el porcentaje de cada uno", otro: "Otro reparto" } as const;
+export type Reparto = keyof typeof REPARTO;
+
+export type BorradorSocio = {
+  nombre: string;
+  email: string;
+  paisResidencia: string;
+  nacionalidad: string;
+  /** Tal y como se escribe en el campo («33,33»). */
+  porcentaje: string;
+  tipo: TipoSocio | null;
+  /** V4: ciudadano o residente fiscal en EE. UU. */
+  residenteEeuu: "si" | "no" | null;
+};
+
+export function socioVacio(): BorradorSocio {
+  return { nombre: "", email: "", paisResidencia: "", nacionalidad: "", porcentaje: "", tipo: null, residenteEeuu: null };
+}
+
+/** «33,33» → 33.33. Null si no es un porcentaje válido (mayor que 0 y menor que 100, hasta 2 decimales). */
+export function porcentajeDe(valor: unknown): number | null {
+  const bruto = (typeof valor === "number" ? String(valor) : typeof valor === "string" ? valor : "")
+    .replace(/\s|%/g, "")
+    .replace(",", ".");
+  if (!/^\d{1,2}(?:\.\d{1,2})?$/.test(bruto)) return null;
+  const n = Number(bruto);
+  return n > 0 && n < 100 ? n : null;
+}
+
+/** Los porcentajes suman 100 (con margen de redondeo de los decimales). */
+export function sumaCien(porcentajes: readonly number[]): boolean {
+  const suma = porcentajes.reduce((a, b) => a + b, 0);
+  return Math.abs(suma - 100) < 0.05;
+}
+
+/** Algún socio saca el alta del carril online (empresa o persona de EE. UU.). */
+export function desvioSocios(socios: readonly Pick<BorradorSocio, "tipo" | "residenteEeuu">[]): "socioEmpresa" | "socioEeuu" | null {
+  if (socios.some((s) => s.tipo === "empresa")) return "socioEmpresa";
+  if (socios.some((s) => s.residenteEeuu === "si")) return "socioEeuu";
+  return null;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,6 +144,7 @@ export function limpiarOpciones(opciones: readonly string[]): string[] {
 }
 
 export type BorradorAlta = {
+  tipo?: string | null;
   nombre: string;
   email: string;
   opcionesNombre: string[];
@@ -84,6 +155,16 @@ export type BorradorAlta = {
   facturacion: Facturacion | null;
   aceptaTerminos: boolean;
   consentimiento: boolean;
+  // Varios socios.
+  numSocios?: number | typeof MAS_DE_DIEZ | null;
+  socios?: BorradorSocio[];
+  interlocutor?: number | null;
+  gestion?: Gestion | null;
+  gestores?: number[];
+  reparto?: Reparto | null;
+  repartoOtro?: string;
+  pactoSalida?: "si" | "no" | null;
+  confirmaSocios?: boolean;
 };
 
 const MSG = {
@@ -99,6 +180,25 @@ const MSG = {
   facturacion: "Elige una opción.",
   aceptaTerminos: "Tienes que aceptar los Términos y Condiciones.",
   consentimiento: "Necesitamos tu consentimiento.",
+  numSocios: "Dinos cuántos socios sois.",
+  masDeDiez: "Con más de 10 socios preparamos la LLC a medida: escríbenos.",
+  socioNombre: "Escribe el nombre completo de cada socio.",
+  socioEmail: "Escribe un email válido para cada socio.",
+  socioPais: "Escribe el país de residencia de cada socio.",
+  socioNacionalidad: "Escribe la nacionalidad de cada socio.",
+  socioPorcentaje: "Escribe el porcentaje de cada socio (mayor que 0 y menor que 100).",
+  socioTipo: "Dinos si cada socio es una persona o una empresa.",
+  socioEeuu: "Dinos si cada socio es ciudadano o residente fiscal en EE. UU.",
+  socioDesvio: "Con un socio empresa o de EE. UU. el alta no se hace online: escríbenos.",
+  sumaCien: "Los porcentajes tienen que sumar 100 %.",
+  emailsRepetidos: "Cada socio necesita su propio email.",
+  interlocutor: "Elige quién de vosotros será la persona de contacto.",
+  gestion: "Elige quién decide el día a día.",
+  gestores: "Marca quién o quiénes serán los gestores.",
+  reparto: "Elige cómo os repartís los beneficios.",
+  repartoOtro: "Cuéntanos cómo os vais a repartir los beneficios.",
+  pactoSalida: "Elige una opción.",
+  confirmaSocios: "Confirma que los demás socios conocen y aceptan la solicitud.",
 } as const;
 
 function erroresOpciones(opciones: readonly string[]): string | null {
@@ -153,8 +253,71 @@ export function erroresPasoAlta(paso: PasoAlta, a: BorradorAlta): Record<string,
     case "aceptacion":
       if (!a.aceptaTerminos) e.aceptaTerminos = MSG.aceptaTerminos;
       if (!a.consentimiento) e.consentimiento = MSG.consentimiento;
+      if (a.tipo === "llc-2" && !a.confirmaSocios) e.confirmaSocios = MSG.confirmaSocios;
       break;
+    case "numSocios":
+      if (a.numSocios === MAS_DE_DIEZ) e.numSocios = MSG.masDeDiez;
+      else if (typeof a.numSocios !== "number" || a.numSocios < MIN_SOCIOS || a.numSocios > MAX_SOCIOS) {
+        e.numSocios = MSG.numSocios;
+      }
+      break;
+    case "socios":
+      Object.assign(e, erroresSocios(a.socios ?? []));
+      break;
+    case "interlocutor": {
+      const n = a.socios?.length ?? 0;
+      if (typeof a.interlocutor !== "number" || a.interlocutor < 0 || a.interlocutor >= n) {
+        e.interlocutor = MSG.interlocutor;
+      }
+      if (a.telefono.trim() && !telefonoConPrefijo(a.telefono)) e.telefono = MSG.telefono;
+      break;
+    }
+    case "gestion":
+      if (!a.gestion || !(a.gestion in GESTION)) e.gestion = MSG.gestion;
+      else if (a.gestion === "gestores" && !(a.gestores ?? []).length) e.gestores = MSG.gestores;
+      break;
+    case "reparto":
+      if (!a.reparto || !(a.reparto in REPARTO)) e.reparto = MSG.reparto;
+      else if (a.reparto === "otro" && !(a.repartoOtro ?? "").trim()) e.repartoOtro = MSG.repartoOtro;
+      if (a.pactoSalida !== "si" && a.pactoSalida !== "no") e.pactoSalida = MSG.pactoSalida;
+      break;
+    case "domicilio": {
+      const d = a.direccion.trim();
+      if (d.length < MIN_DIRECCION || d.length > MAX_DIRECCION) e.direccion = MSG.direccion;
+      const t = a.actividad.trim();
+      if (t.length < MIN_ACTIVIDAD || t.length > MAX_ACTIVIDAD) e.actividad = MSG.actividad;
+      break;
+    }
   }
+  return e;
+}
+
+/** Errores de los datos de los socios. Claves `socios.{i}.{campo}` y `socios` para lo común. */
+export function erroresSocios(socios: readonly BorradorSocio[]): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (socios.length < MIN_SOCIOS || socios.length > MAX_SOCIOS) {
+    e.socios = MSG.numSocios;
+    return e;
+  }
+  socios.forEach((s, i) => {
+    const n = s.nombre.trim();
+    if (n.length < 3 || n.length > 120) e[`socios.${i}.nombre`] = MSG.socioNombre;
+    if (!EMAIL_RE.test(s.email.trim()) || s.email.trim().length > 200) e[`socios.${i}.email`] = MSG.socioEmail;
+    const p = s.paisResidencia.trim();
+    if (p.length < 2 || p.length > 80) e[`socios.${i}.paisResidencia`] = MSG.socioPais;
+    const nac = s.nacionalidad.trim();
+    if (nac.length < 2 || nac.length > 80) e[`socios.${i}.nacionalidad`] = MSG.socioNacionalidad;
+    if (porcentajeDe(s.porcentaje) == null) e[`socios.${i}.porcentaje`] = MSG.socioPorcentaje;
+    if (s.tipo !== "persona" && s.tipo !== "empresa") e[`socios.${i}.tipo`] = MSG.socioTipo;
+    if (s.residenteEeuu !== "si" && s.residenteEeuu !== "no") e[`socios.${i}.residenteEeuu`] = MSG.socioEeuu;
+  });
+  if (desvioSocios(socios)) e.socios = MSG.socioDesvio;
+  const porcentajes = socios.map((s) => porcentajeDe(s.porcentaje));
+  if (!e.socios && porcentajes.every((p): p is number => p != null) && !sumaCien(porcentajes)) {
+    e.socios = MSG.sumaCien;
+  }
+  const emails = socios.map((s) => s.email.trim().toLowerCase()).filter(Boolean);
+  if (!e.socios && new Set(emails).size !== emails.length) e.socios = MSG.emailsRepetidos;
   return e;
 }
 
@@ -195,6 +358,126 @@ export function validarAlta(value: unknown): { errores: Record<string, string> }
     errores[clave] ??= issue.message;
   }
   return { errores };
+}
+
+/** Socio de una LLC de varios socios, ya validado. */
+export type DatosSocio = {
+  nombre: string;
+  email: string;
+  paisResidencia: string;
+  nacionalidad: string;
+  porcentaje: number;
+  tipo: TipoSocio;
+  residenteEeuu: false;
+};
+
+export type DatosAltaSocios = {
+  numSocios: number;
+  socios: DatosSocio[];
+  /** Índice del socio que es la persona de contacto. */
+  interlocutor: number;
+  opcionesNombre: string[];
+  gestion: Gestion;
+  /** Nombres de los gestores (solo con «Uno o varios gestores»). */
+  gestores: string[];
+  reparto: Reparto;
+  repartoOtro: string | null;
+  pactoSalida: boolean;
+  direccion: string;
+  actividad: string;
+  facturacion: Facturacion;
+  aceptaTerminos: true;
+  confirmaSocios: true;
+};
+
+function textoLimpio(v: unknown): string {
+  return typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
+}
+
+/** Bloque `alta` de una LLC de varios socios. Sin zod: los socios llegan como lista con desvíos propios. */
+export function validarAltaSocios(value: unknown): { errores: Record<string, string> } | { alta: DatosAltaSocios } {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  const errores: Record<string, string> = {};
+
+  if (raw.numSocios === MAS_DE_DIEZ) errores.numSocios = MSG.masDeDiez;
+  const numSocios = typeof raw.numSocios === "number" ? raw.numSocios : NaN;
+  const sociosRaw = Array.isArray(raw.socios) ? raw.socios.slice(0, MAX_SOCIOS + 1) : [];
+  if (!errores.numSocios && (!Number.isInteger(numSocios) || numSocios < MIN_SOCIOS || numSocios > MAX_SOCIOS || sociosRaw.length !== numSocios)) {
+    errores.numSocios = MSG.numSocios;
+  }
+  const borradores: BorradorSocio[] = sociosRaw.map((s) => {
+    const o = s && typeof s === "object" ? (s as Record<string, unknown>) : {};
+    return {
+      nombre: textoLimpio(o.nombre),
+      email: textoLimpio(o.email).toLowerCase(),
+      paisResidencia: textoLimpio(o.paisResidencia),
+      nacionalidad: textoLimpio(o.nacionalidad),
+      porcentaje: typeof o.porcentaje === "number" ? String(o.porcentaje) : textoLimpio(o.porcentaje),
+      tipo: o.tipo === "persona" || o.tipo === "empresa" ? o.tipo : null,
+      residenteEeuu: o.residenteEeuu === "si" || o.residenteEeuu === "no" ? o.residenteEeuu : null,
+    };
+  });
+  if (!errores.numSocios) Object.assign(errores, erroresSocios(borradores));
+
+  const interlocutor = typeof raw.interlocutor === "number" ? raw.interlocutor : -1;
+  if (!Number.isInteger(interlocutor) || interlocutor < 0 || interlocutor >= borradores.length) {
+    errores.interlocutor = MSG.interlocutor;
+  }
+
+  const opciones = Array.isArray(raw.opcionesNombre) ? raw.opcionesNombre.filter((o): o is string => typeof o === "string") : [];
+  const errOpciones = opciones.length > MAX_OPCIONES_NOMBRE ? MSG.opciones : erroresOpciones(opciones);
+  if (errOpciones) errores.opcionesNombre = errOpciones;
+
+  const gestion = raw.gestion === "todos" || raw.gestion === "gestores" ? raw.gestion : null;
+  if (!gestion) errores.gestion = MSG.gestion;
+  const indicesGestores = Array.isArray(raw.gestores)
+    ? [...new Set(raw.gestores.filter((g): g is number => Number.isInteger(g) && g >= 0 && g < borradores.length))]
+    : [];
+  if (gestion === "gestores" && !indicesGestores.length) errores.gestores = MSG.gestores;
+
+  const reparto = raw.reparto === "porcentaje" || raw.reparto === "otro" ? raw.reparto : null;
+  if (!reparto) errores.reparto = MSG.reparto;
+  const repartoOtro = typeof raw.repartoOtro === "string" ? raw.repartoOtro.trim() : "";
+  if (reparto === "otro" && (!repartoOtro || repartoOtro.length > 2000)) errores.repartoOtro = MSG.repartoOtro;
+  if (raw.pactoSalida !== "si" && raw.pactoSalida !== "no") errores.pactoSalida = MSG.pactoSalida;
+
+  const direccion = typeof raw.direccion === "string" ? raw.direccion.trim() : "";
+  if (direccion.length < MIN_DIRECCION || direccion.length > MAX_DIRECCION) errores.direccion = MSG.direccion;
+  const actividad = typeof raw.actividad === "string" ? raw.actividad.trim() : "";
+  if (actividad.length < MIN_ACTIVIDAD || actividad.length > MAX_ACTIVIDAD) errores.actividad = MSG.actividad;
+  const facturacion = FACTURACIONES.includes(raw.facturacion as Facturacion) ? (raw.facturacion as Facturacion) : null;
+  if (!facturacion) errores.facturacion = MSG.facturacion;
+  if (raw.aceptaTerminos !== true) errores.aceptaTerminos = MSG.aceptaTerminos;
+  if (raw.confirmaSocios !== true) errores.confirmaSocios = MSG.confirmaSocios;
+
+  if (Object.keys(errores).length) return { errores };
+  const socios: DatosSocio[] = borradores.map((s) => ({
+    nombre: s.nombre,
+    email: s.email,
+    paisResidencia: s.paisResidencia,
+    nacionalidad: s.nacionalidad,
+    porcentaje: porcentajeDe(s.porcentaje)!,
+    tipo: s.tipo!,
+    residenteEeuu: false,
+  }));
+  return {
+    alta: {
+      numSocios,
+      socios,
+      interlocutor,
+      opcionesNombre: limpiarOpciones(opciones),
+      gestion: gestion!,
+      gestores: gestion === "gestores" ? indicesGestores.sort((a, b) => a - b).map((i) => socios[i].nombre) : [],
+      reparto: reparto!,
+      repartoOtro: reparto === "otro" ? repartoOtro : null,
+      pactoSalida: raw.pactoSalida === "si",
+      direccion,
+      actividad,
+      facturacion: facturacion!,
+      aceptaTerminos: true,
+      confirmaSocios: true,
+    },
+  };
 }
 
 export { MSG as MENSAJES_ALTA };

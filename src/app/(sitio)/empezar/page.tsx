@@ -19,9 +19,9 @@ const desdePaquete: Record<string, Punto> = {
 export default async function EmpezarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paquete?: string; plan?: string }>;
+  searchParams: Promise<{ paquete?: string; plan?: string; tipo?: string }>;
 }) {
-  const { paquete, plan: planParam } = await searchParams;
+  const { paquete, plan: planParam, tipo } = await searchParams;
   // El cierre es un servicio propio con su página.
   if (paquete === "cierre") redirect("/cierra-tu-llc");
   const puntoInicial = typeof paquete === "string" ? desdePaquete[paquete] : undefined;
@@ -50,6 +50,7 @@ export default async function EmpezarPage({
         <div className="mt-12">
           <FormationWizard
             puntoInicial={plan ? "crear" : puntoInicial}
+            tipoInicial={tipo === "llc-2" ? "llc-2" : undefined}
             plan={plan}
             formulariosAbiertos={formulariosAbiertos}
           />

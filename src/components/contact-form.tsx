@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Info, Loader2 } from "lucide-react";
+import { ArrowRight, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Confirmacion } from "@/components/confirmacion";
 import { Honeypot } from "@/components/honeypot";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,10 +18,9 @@ const opciones = [
   { value: "arranque", label: "Constituir una LLC" },
   { value: "cierre", label: "Cerrar mi LLC" },
   { value: "corporacion", label: "Corporación (C-Corp) a medida" },
-  { value: "encargo", label: "Encargo personalizado" },
   { value: "cambio-titularidad", label: "Cambio de titularidad" },
   { value: "operating-agreement", label: "Operating Agreement personalizado" },
-  { value: "operaciones-societarias", label: "Operaciones societarias (M&A)" },
+  { value: "operaciones-societarias", label: "Operaciones societarias en USA" },
   { value: "web", label: "Web, tienda online o SEO" },
   { value: "otra", label: "Otra cosa" },
 ];
@@ -30,11 +30,15 @@ type Estado = "idle" | "sending" | "sent" | "error";
 const field =
   "h-12 rounded-2xl border-tinta/15 bg-white px-4 text-base shadow-none focus-visible:border-chancla focus-visible:ring-chancla/20";
 
-export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
+/** Enlaces antiguos: el encargo personalizado ahora llega como «Constituir una LLC». */
+const ALIAS: Record<string, string> = { encargo: "arranque" };
+
+export function ContactForm({ servicioInicial, mensajeInicial }: { servicioInicial?: string; mensajeInicial?: string }) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState("");
-  const inicial = opciones.some((o) => o.value === servicioInicial) ? servicioInicial! : "en-regla";
+  const pedido = servicioInicial ? (ALIAS[servicioInicial] ?? servicioInicial) : undefined;
+  const inicial = opciones.some((o) => o.value === pedido) ? pedido! : "en-regla";
   const [servicio, setServicio] = useState(inicial);
   const avisoServicio = avisosContacto[servicio];
 
@@ -82,19 +86,17 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
 
   if (estado === "sent") {
     return (
-      <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-[2rem] bg-tinta p-10 text-center text-arena animate-in fade-in zoom-in-95 duration-500">
-        <span className="grid size-16 place-items-center rounded-full bg-chancla">
-          <Check className="size-8" strokeWidth={3} />
-        </span>
-        <h2 className="mt-6 text-3xl font-bold">¡Recibido!</h2>
-        <p className="mt-3 max-w-sm text-arena/70">
-          Gracias por escribirnos. Te responderemos por email lo antes posible. Mientras, tú a lo
-          tuyo: chanclas y a la sombra.
-        </p>
+      <div role="status" className="flex min-h-[28rem] flex-col justify-center rounded-[2rem] bg-tinta p-10 text-arena animate-in fade-in zoom-in-95 duration-500">
+        {/* Contacto: sin plazo comprometido (Santiago, 2026-11-26). */}
+        <Confirmacion
+          oscuro
+          queAhora="Gracias por escribirnos: te escribimos para ver tu caso."
+          cuando="Te responderemos por email lo antes posible. Mientras, tú a lo tuyo: chanclas y a la sombra."
+        />
         <button
           type="button"
           onClick={() => setEstado("idle")}
-          className="mt-8 text-sm font-semibold text-sol underline underline-offset-4"
+          className="mt-8 self-start text-sm font-semibold text-sol underline underline-offset-4"
         >
           Enviar otro mensaje
         </button>
@@ -151,6 +153,7 @@ export function ContactForm({ servicioInicial }: { servicioInicial?: string }) {
             name="mensaje"
             rows={5}
             required
+            defaultValue={mensajeInicial}
             placeholder="Por ejemplo: tengo una LLC en New Mexico desde el año pasado y es mi primera presentación…"
             className={cn(field, "h-auto min-h-36 py-3")}
             aria-invalid={!!errors.mensaje}

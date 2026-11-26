@@ -10,18 +10,55 @@ import { esHoneypot, validarContacto, validarEmpezar } from "@/lib/validacion";
 import { casoAsistente } from "@/lib/asistente";
 import {
   erroresPasoAlta,
+  erroresSocios,
   MAX_OPCIONES_NOMBRE,
   pasosDe,
   PASOS_ALTA,
+  PASOS_ALTA_SOCIOS,
+  porcentajeDe,
+  socioVacio,
   telefonoConPrefijo,
   validarAlta,
+  validarAltaSocios,
   type BorradorAlta,
 } from "@/lib/alta";
+import {
+  dolares,
+  enlacePago,
+  ESTADOS_LLC,
+  precio1065,
+  precioApertura,
+  precioAperturaVarios,
+  precioCierre,
+  precioRenovacion,
+} from "@/lib/precios";
 import { avisoEmailPago, avisosContacto, enlaceStripe, estadosConstitucion, navegacion, planes } from "@/lib/site";
 import { formulariosAbiertos, leerLanzamiento } from "@/lib/visibilidad";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
 process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
+
+export const SOCIOS_OK = [
+  { nombre: "Ana Pérez", email: "ana@example.com", paisResidencia: "España", nacionalidad: "española", porcentaje: "50", tipo: "persona", residenteEeuu: "no" },
+  { nombre: "Luis Gómez", email: "luis@example.com", paisResidencia: "México", nacionalidad: "mexicana", porcentaje: "30", tipo: "persona", residenteEeuu: "no" },
+  { nombre: "Eva Ruiz", email: "eva@example.com", paisResidencia: "Chile", nacionalidad: "chilena", porcentaje: "20", tipo: "persona", residenteEeuu: "no" },
+] as const;
+
+const ALTA_SOCIOS_OK = {
+  numSocios: 3,
+  socios: SOCIOS_OK,
+  interlocutor: 0,
+  opcionesNombre: ["Tres Chanclas LLC", "Three Flip Flops LLC", "Chanclas Trio LLC"],
+  gestion: "gestores",
+  gestores: [0, 1],
+  reparto: "porcentaje",
+  pactoSalida: "no",
+  direccion: "Calle Mayor 1, 2º B, 28013 Madrid, Madrid, España",
+  actividad: "Agencia de desarrollo web con clientes en Europa y América.",
+  facturacion: "50k-100k",
+  aceptaTerminos: true,
+  confirmaSocios: true,
+};
 
 const ALTA_OK = {
   opcionesNombre: ["Sombrilla Studio LLC", "Sombrilla LLC", "Sunshade Studio LLC"],
@@ -157,28 +194,98 @@ describe("validación", () => {
     expect(sinRequisitos).toMatchObject({ errores: { requisitos: expect.any(String) } });
   });
 
-  test("el asistente manda a encargo lo que no cubren los planes", () => {
+  test("crear solo sigue online en los 7 estados, sin C-Corp y sin persona de EE. UU.", () => {
     const base = {
       punto: "crear",
       nombre: "Ana García",
       email: "ana@example.com",
       telefono: "+34 600 000 000",
       consentimiento: true,
+      residenteEeuu: "no",
       alta: ALTA_OK,
     };
-    const casos: [Record<string, unknown>, string][] = [
-      [{ tipo: "llc-1", estado: "New Mexico", plan: "basico" }, "arranque"],
-      [{ tipo: "llc-1", estado: "no-se" }, "arranque"],
-      [{ tipo: "llc-1", estado: "Wyoming", plan: "basico" }, "encargo"],
-      [{ tipo: "llc-2", estado: "New Mexico" }, "encargo"],
-      [{ tipo: "corp", estado: "Delaware" }, "encargo"],
-    ];
-    for (const [extra, servicio] of casos) {
-      const res = validarEmpezar({ ...base, ...extra });
-      expect(res).toMatchObject({ datos: { servicio } });
-      if ("datos" in res && servicio === "encargo") expect(res.datos.datos.plan).toBeUndefined();
+    for (const e of ESTADOS_LLC) {
+      expect(validarEmpezar({ ...base, tipo: "llc-1", estado: e.clave, plan: "basico" })).toMatchObject({
+        datos: { servicio: "arranque", datos: { caso: "plan", estado: e.nombre } },
+      });
+    }
+    for (const extra of [
+      { tipo: "llc-1", estado: "no-se" },
+      { tipo: "llc-1", estado: "otro", otroEstado: "California" },
+      { tipo: "llc-1", estado: "California" },
+      { tipo: "corp", estado: "Delaware" },
+      { tipo: "llc-1", estado: "Delaware", residenteEeuu: "si" },
+      { tipo: "llc-1", estado: "Delaware", residenteEeuu: undefined },
+    ]) {
+      expect("errores" in validarEmpezar({ ...base, ...extra })).toBe(true);
     }
     expect("errores" in validarEmpezar({ ...base, punto: "anual", tipo: "corp", estado: "Wyoming", nombreLLC: "X", requisitos: "si" })).toBe(true);
+  });
+
+  test("el precio que se guarda es el del estado y dice si hay enlace de Stripe", () => {
+    const base = {
+      punto: "crear",
+      tipo: "llc-1",
+      nombre: "Ana García",
+      email: "ana@example.com",
+      telefono: "+34 600 000 000",
+      consentimiento: true,
+      residenteEeuu: "no",
+      alta: ALTA_OK,
+    };
+    expect(validarEmpezar({ ...base, estado: "New Mexico", plan: "basico" })).toMatchObject({
+      datos: { datos: { precioTotal: 397, pagoOnline: true } },
+    });
+    expect(validarEmpezar({ ...base, estado: "Texas", plan: "estandar" })).toMatchObject({
+      datos: { datos: { precioTotal: 797, pagoOnline: false, precio: "Plan Estándar: 797 $ = 497 $ + 300 $ (tasa del estado de Texas)" } },
+    });
+    const sinPlan = validarEmpezar({ ...base, estado: "New Mexico" });
+    if ("datos" in sinPlan) {
+      expect(sinPlan.datos.datos.precioTotal).toBeUndefined();
+      expect(sinPlan.datos.datos.precio).toBe("Plan Básico: 397 $ (tasa del estado incluida) · Plan Estándar: 497 $ (tasa del estado incluida)");
+    }
+  });
+
+  test("varios socios: alta completa, persona de contacto en la raíz y precio por socios", () => {
+    const res = validarEmpezar({ punto: "crear", tipo: "llc-2", estado: "Delaware", alta: ALTA_SOCIOS_OK, consentimiento: true });
+    expect(res).toMatchObject({
+      datos: {
+        servicio: "arranque",
+        nombre: "Ana Pérez",
+        email: "ana@example.com",
+        telefono: null,
+        datos: {
+          caso: "varios",
+          estado: "Delaware",
+          nombreLlc: "Tres Chanclas LLC",
+          precioTotal: 736,
+          pagoOnline: false,
+          altaCompleta: true,
+          alta: {
+            numSocios: 3,
+            gestores: ["Ana Pérez", "Luis Gómez"],
+            pactoSalida: false,
+            interlocutorNombre: "Ana Pérez",
+            socios: [{ porcentaje: 50, tipo: "persona", tipoEtiqueta: "Persona" }, {}, {}],
+          },
+        },
+      },
+    });
+    const desvios: Record<string, unknown>[] = [
+      { numSocios: "mas-10" },
+      { socios: [{ ...SOCIOS_OK[0], tipo: "empresa" }, SOCIOS_OK[1], SOCIOS_OK[2]] },
+      { socios: [{ ...SOCIOS_OK[0], residenteEeuu: "si" }, SOCIOS_OK[1], SOCIOS_OK[2]] },
+      { socios: [{ ...SOCIOS_OK[0], porcentaje: "40" }, SOCIOS_OK[1], SOCIOS_OK[2]] },
+      { socios: [SOCIOS_OK[0], { ...SOCIOS_OK[1], email: "ana@example.com" }, SOCIOS_OK[2]] },
+      { numSocios: 2 },
+      { confirmaSocios: false },
+      { gestores: [] },
+      { reparto: "otro", repartoOtro: "" },
+    ];
+    for (const extra of desvios) {
+      expect("errores" in validarAltaSocios({ ...ALTA_SOCIOS_OK, ...extra })).toBe(true);
+    }
+    expect("errores" in validarEmpezar({ punto: "crear", tipo: "llc-2", estado: "otro", alta: ALTA_SOCIOS_OK, consentimiento: true })).toBe(true);
   });
 
   test("casoAsistente decide el resultado", () => {
@@ -186,6 +293,10 @@ describe("validación", () => {
     expect(casoAsistente({ punto: "anual", tipo: "llc-1", estado: "Texas", requisitos: "no" })).toBe("contacto");
     expect(casoAsistente({ punto: "anual", tipo: "llc-2", estado: "Texas", requisitos: "si" })).toBe("contacto");
     expect(casoAsistente({ punto: "cerrar", tipo: null, estado: null, requisitos: null })).toBe("cierre");
+    expect(casoAsistente({ punto: "crear", tipo: "llc-1", estado: "Nevada", requisitos: null })).toBe("plan");
+    expect(casoAsistente({ punto: "crear", tipo: "llc-2", estado: "Utah", requisitos: null })).toBe("varios");
+    expect(casoAsistente({ punto: "crear", tipo: "llc-1", estado: "no-se", requisitos: null })).toBeNull();
+    expect(casoAsistente({ punto: "crear", tipo: "corp", estado: "Delaware", requisitos: null })).toBeNull();
   });
 
   test("el señuelo solo salta si viene relleno", () => {
@@ -243,11 +354,15 @@ describe("contenido", () => {
     for (const id of ["basico", "estandar"]) {
       const plan = planes.find((p) => p.id === id)!;
       expect(plan.href).toBe(`/empezar?plan=${id}`);
-      expect(plan.pago).toMatch(/^https:\/\/buy\.stripe\.com\//);
       expect(plan.incluye).toContain("Operating Agreement (modelo estándar)");
-      expect(plan.aviso).toBe("*Renovación anual: 197 $/año a partir del segundo año.");
+      expect(plan.incluye[0]).toBe("Registro de la LLC en Nuevo México, Delaware, Wyoming, Nevada, Utah, Florida o Texas");
     }
-    expect(planes.find((p) => p.id === "encargo")!.href).toBe("/contacto?servicio=encargo");
+    expect(planes[0].precio).toBe("Desde 397 $");
+    expect(planes[1].precio).toBe("Desde 497 $");
+    expect(planes[0].aviso).toContain("Renovación anual: 197 $/año + tasa anual del estado");
+    expect(enlacePago("basico", 397)).toMatch(/^https:\/\/buy\.stripe\.com\//);
+    expect(enlacePago("estandar", 497)).toMatch(/^https:\/\/buy\.stripe\.com\//);
+    expect(planes.find((p) => p.id === "encargo")!.href).toBe("/contacto?servicio=arranque");
   });
 
   test("todo enlace de Stripe lleva client_reference_id y prefilled_email codificado", () => {
@@ -266,8 +381,56 @@ describe("contenido", () => {
 
   test("contacto muestra aviso para C-Corp y encargo personalizado", () => {
     expect(avisosContacto.corporacion?.titulo).toBe("Una C-Corp es una estructura compleja.");
-    expect(avisosContacto.encargo?.titulo).toBe("Tu caso necesita un análisis personalizado.");
+    expect(avisosContacto.arranque?.titulo).toBe("Tu caso necesita un análisis personalizado.");
+    expect(avisosContacto.arranque?.texto).not.toContain("varios socios");
     expect(avisosContacto["en-regla"]).toBeUndefined();
+  });
+});
+
+describe("precios (precios.md)", () => {
+  test("apertura de un socio: plan + tasa del estado, con Nuevo México incluido", () => {
+    const tabla: Record<string, [number, number]> = {
+      "New Mexico": [397, 497],
+      Utah: [456, 556],
+      Wyoming: [497, 597],
+      Delaware: [507, 607],
+      Florida: [522, 622],
+      Texas: [697, 797],
+      Nevada: [822, 922],
+    };
+    for (const [estado, [basico, estandar]] of Object.entries(tabla)) {
+      expect(precioApertura(estado as never, "basico").total).toBe(basico);
+      expect(precioApertura(estado as never, "estandar").total).toBe(estandar);
+    }
+    expect(precioApertura("New Mexico", "basico").texto).toBe("397 $ (tasa del estado incluida)");
+    expect(precioApertura("Delaware", "basico").texto).toBe("397 $ + 110 $ (tasa del estado de Delaware)");
+    expect(precioApertura("Nevada", "basico").texto).toBe("397 $ + 425 $ (tasas del estado de Nevada)");
+  });
+
+  test("varios socios: 547 $ con 2 + 79 $ por socio adicional + tasa", () => {
+    expect(precioAperturaVarios("New Mexico", 2).total).toBe(547);
+    expect(precioAperturaVarios("Delaware", 3).texto).toBe("626 $ + 110 $ (tasa del estado de Delaware)");
+    expect(precioAperturaVarios("Nevada", 3).total).toBe(1051);
+    expect(precioAperturaVarios("Nevada", 10).total).toBe(1604);
+    expect(precioAperturaVarios("Texas", 10).total).toBe(1479);
+    expect(dolares(1051)).toBe("1.051 $");
+    expect(precio1065(2)).toBe(449);
+    expect(precio1065(10)).toBe(841);
+  });
+
+  test("renovación: 197 $ + tasa anual; cierre: 467 $ + tasa de disolución", () => {
+    const renovacion: Record<string, number> = { "New Mexico": 197, Texas: 197, Utah: 215, Wyoming: 257, Florida: 335.75, Delaware: 597, Nevada: 547 };
+    for (const [estado, total] of Object.entries(renovacion)) expect(precioRenovacion(estado as never).total).toBe(total);
+    expect(precioRenovacion("Florida").texto).toBe("197 $ + 138,75 $ (tasa anual del estado de Florida)");
+    expect(precioRenovacion("New Mexico").texto).toBe("197 $");
+    const cierre: Record<string, number> = { Utah: 467, "New Mexico": 467, Florida: 492, Texas: 507, Wyoming: 527, Nevada: 567, Delaware: 687 };
+    for (const [estado, total] of Object.entries(cierre)) expect(precioCierre(estado as never).total).toBe(total);
+    expect(precioCierre("New Mexico").texto).toBe("467 $ (tasa del estado incluida)");
+    expect(precioCierre("Utah").texto).toBe("467 $ (Utah no cobra tasa de disolución)");
+    expect(precioCierre("Delaware").texto).toBe("467 $ + 220 $ (tasa del estado de Delaware)");
+    // Solo hay enlace de 467 $: Nuevo México y Utah pagan online; el resto, por contacto.
+    expect(enlacePago("cierre", 467)).not.toBeNull();
+    expect(enlacePago("cierre", 687)).toBeNull();
   });
 });
 
@@ -294,6 +457,22 @@ describe("datos de alta del asistente", () => {
     expect(crear.filter((id) => id === "email")).toHaveLength(1);
     expect(pasosDe("anual").map((p) => p.id)).toEqual(["punto", "tipo", "estado", "nombre", "contacto"]);
     expect(pasosDe(null)).toHaveLength(5);
+    const socios = pasosDe("crear", "llc-2").map((p) => p.id);
+    expect(socios.slice(3)).toEqual(PASOS_ALTA_SOCIOS.map((p) => p.id));
+    expect(socios).toHaveLength(12);
+  });
+
+  test("datos de los socios: porcentajes que suman 100 y desvío con empresa o persona de EE. UU.", () => {
+    expect(porcentajeDe("33,33")).toBe(33.33);
+    expect(porcentajeDe("100")).toBeNull();
+    expect(porcentajeDe("0")).toBeNull();
+    const tres = SOCIOS_OK.map((s) => ({ ...s })) as unknown as Parameters<typeof erroresSocios>[0];
+    expect(erroresSocios(tres)).toEqual({});
+    expect(erroresSocios([...tres.slice(0, 2), { ...tres[2], porcentaje: "10" }])).toHaveProperty("socios");
+    expect(erroresSocios([...tres.slice(0, 2), { ...tres[2], tipo: "empresa" }])).toHaveProperty("socios");
+    expect(erroresSocios([tres[0], socioVacio()])).toHaveProperty(["socios.1.nombre"]);
+    expect(erroresPasoAlta("numSocios", { ...borrador, numSocios: "mas-10" })).toHaveProperty("numSocios");
+    expect(erroresPasoAlta("aceptacion", { ...borrador, tipo: "llc-2", confirmaSocios: false })).toHaveProperty("confirmaSocios");
   });
 
   test("cada paso del alta solo es válido con sus datos (Continuar deshabilitado si no)", () => {
@@ -354,6 +533,7 @@ describe("datos de alta del asistente", () => {
       email: "Ana@Example.com",
       telefono: "+34 600 000 000",
       consentimiento: true,
+      residenteEeuu: "no",
       plan: "basico",
     };
     const sinAlta = validarEmpezar(base);

@@ -3,7 +3,8 @@ import { AlertTriangle, CalendarClock, FileCheck2, IdCard, ScrollText, UserCheck
 import { CtaLink, Eyebrow } from "@/components/brand/cta";
 import { FinalCta } from "@/components/final-cta";
 import { Reveal } from "@/components/reveal";
-import { checklistPresentacion } from "@/lib/site";
+import { CIERRE, dolares, LISTA_ESTADOS_LLC } from "@/lib/precios";
+import { AVISO_PLAZO, checklistPresentacion, PLAZO } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Cómo funciona una LLC",
@@ -241,9 +242,9 @@ export default function ComoFuncionaPage() {
             </ol>
             <p>
               Con nosotros, el cierre es un servicio propio: nos encargamos de la disolución ante el
-              estado, los formularios 1120 y 5472 finales y el cierre del EIN, en un máximo de 30 días
-              naturales (sin contar festivos). Cuesta <strong>467 $ + tasas del estado</strong>, para
-              LLC de Wyoming y Nuevo México con un solo socio.
+              estado, los formularios 1120 y 5472 finales y el cierre del EIN, en {PLAZO}. Cuesta{" "}
+              <strong>{dolares(CIERRE)} + la tasa de disolución del estado</strong>, para LLC al día de {LISTA_ESTADOS_LLC} con un
+              solo socio. <em>{AVISO_PLAZO}</em>
             </p>
             <div className="pt-2">
               <CtaLink href="/cierra-tu-llc" variant="dark">
