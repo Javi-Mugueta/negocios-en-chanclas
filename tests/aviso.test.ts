@@ -1,5 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { avisarLead, AVISO_PAGO, AVISO_PAGO_MANUAL, componerAviso, configAviso, escaparHtml } from "@/lib/aviso";
+import { avisarLead, avisoPago, AVISO_PAGO_MANUAL, componerAviso, configAviso, escaparHtml } from "@/lib/aviso";
+import { validarFormularios1065 } from "@/lib/validacion";
+import { FORMULARIO_1065_OK } from "./formulario-1065";
 import { validarEmpezar } from "@/lib/validacion";
 import type { DatosLead } from "@/lib/validacion";
 
@@ -59,7 +61,7 @@ test("el asunto del asistente con plan lleva servicio, caso, plan y nombre", () 
     "Nuevo lead NEC · Constituir una LLC · Plan Básico o Estándar · Plan Básico · Nuevo México · 397 $ · Marta <b>López</b>",
   );
   expect(componerAviso(leadPlan("estandar", "Delaware"), ID, FECHA).asunto).toContain(
-    "Plan Estándar · Delaware · 607 $ · Pago por enlace manual",
+    "Plan Estándar · Delaware · 607 $ · Marta",
   );
   expect(componerAviso(leadPlan(), ID, FECHA).asunto).toContain("Plan sin elegir · Nuevo México · Marta");
 });
@@ -90,10 +92,11 @@ test("el cuerpo incluye fecha en Madrid, todos los datos de alta, enlaces y el a
   expect(texto).toContain("Alta · Términos aceptados: Sí");
   expect(texto).toContain("Alta · Versión de los términos: ");
   expect(texto).toContain("Datos de alta completos: Sí");
-  expect(texto).toContain(AVISO_PAGO);
+  expect(texto).toContain(avisoPago("NEC-201"));
+  expect(texto).toContain("ID de servicio (plan de Whop): NEC-201");
   expect(texto).toContain(`Ficha del lead: https://negociosenchanclas.com/panel/leads/${ID}`);
   expect(texto).toContain("Panel: https://negociosenchanclas.com/panel");
-  expect(html).toContain(AVISO_PAGO);
+  expect(html).toContain(escaparHtml(avisoPago("NEC-201")));
   expect(html).toContain(`href="https://negociosenchanclas.com/panel/leads/${ID}"`);
   expect(html).toContain('href="https://negociosenchanclas.com/panel"');
 });
@@ -110,11 +113,27 @@ test("el HTML escapa los datos del usuario", () => {
   expect(escaparHtml(`"a'&`)).toBe("&quot;a&#39;&amp;");
 });
 
-test("solo lo que llega a un pago lleva el aviso de pago; sin enlace de Stripe, el aviso de enlace manual", () => {
-  expect(componerAviso(contacto, ID, FECHA).texto).not.toContain(AVISO_PAGO);
+test("solo lo que llega a un pago lleva el aviso de pago de Whop con su ID; sin enlace, el aviso de enlace manual", () => {
+  expect(componerAviso(contacto, ID, FECHA).texto).not.toContain("PAGO NO CONFIRMADO");
   const delaware = componerAviso(leadPlan("basico", "Delaware"), ID, FECHA).texto;
-  expect(delaware).toContain(AVISO_PAGO_MANUAL);
+  expect(delaware).toContain(avisoPago("NEC-104"));
+  expect(delaware).not.toContain("Stripe");
   expect(delaware).toContain("Precio: Plan Básico: 507 $ = 397 $ + 110 $ (tasa del estado de Delaware)");
+  const sinEnlace = componerAviso({ ...leadPlan("basico"), datos: { ...leadPlan("basico").datos, pagoOnline: false } }, ID, FECHA);
+  expect(sinEnlace.texto).toContain(AVISO_PAGO_MANUAL);
+  expect(sinEnlace.asunto).toContain("Pago por enlace manual");
+});
+
+test("el aviso del Form 1065 lleva socios, ID NEC-6SS y un socio por línea", () => {
+  const r = validarFormularios1065(FORMULARIO_1065_OK);
+  if ("errores" in r) throw new Error(JSON.stringify(r.errores));
+  const { asunto, texto } = componerAviso(r.datos, ID, FECHA);
+  expect(asunto).toBe("Nuevo lead NEC · Form 1065 + K-1 2026 (varios socios) · 3 socios · Wyoming · 498 $ · Lucía Martín");
+  expect(texto).toContain(avisoPago("NEC-603"));
+  expect(texto).toContain("Socio 1: Lucía Martín · pasaporte PAA111111 · nacionalidad española");
+  expect(texto).toContain("50 % a 1-1 · 50 % a 31-12 · aportó 1000.00 USD · sacó 200.00 USD · sin ITIN");
+  expect(texto).toContain("ITIN 912-34-5678");
+  expect(texto).toContain("Ingresos totales del año (USD): 50000.00");
 });
 
 test("el aviso de varios socios lista cada socio en una línea", () => {
@@ -143,10 +162,10 @@ test("el aviso de varios socios lista cada socio en una línea", () => {
   });
   if ("errores" in r) throw new Error(JSON.stringify(r.errores));
   const { asunto, texto } = componerAviso(r.datos, ID, FECHA);
-  expect(asunto).toBe("Nuevo lead NEC · Constituir una LLC · LLC de varios socios · 2 socios · Delaware · 657 $ · Pago por enlace manual · Luis Gómez");
+  expect(asunto).toBe("Nuevo lead NEC · Constituir una LLC · LLC de varios socios · 2 socios · Delaware · 657 $ · Luis Gómez");
   expect(texto).toContain("Alta · Socio 1: Ana Pérez · ana@example.com · reside en España · nacionalidad española · 60 % · Persona");
   expect(texto).toContain("Alta · Persona de contacto: Luis Gómez");
-  expect(texto).toContain(AVISO_PAGO_MANUAL);
+  expect(texto).toContain(avisoPago("NEC-5024"));
 });
 
 test("sin variables de entorno no se envía nada", async () => {

@@ -16,7 +16,7 @@ const pilares = [
   {
     icon: CreditCard,
     titulo: "Pago sencillo",
-    texto: "Al terminar el formulario de tu presentación, pagas con tarjeta a través de Stripe.",
+    texto: "Al terminar el formulario de tu presentación, pagas con tarjeta a través de Whop.",
   },
 ];
 

@@ -66,8 +66,15 @@ export default function LegalPage() {
             tu país de residencia, el nombre, estado de constitución, EIN, fecha de constitución y
             número de socios de la LLC, su situación (formularios de años anteriores, registered
             agent e informe anual), las cuentas que tiene abiertas, cuándo quieres cerrarla, lo que
-            quieras contarnos y las confirmaciones que marcas. El pago de esos servicios se hace en
-            Stripe, fuera de esta web: no vemos ni guardamos los datos de tu tarjeta. También guardamos la página
+            quieras contarnos y las confirmaciones que marcas. En el formulario del Form 1065 + K-1
+            (LLC de varios socios), los requisitos que cumple la LLC, el nombre, estado de
+            constitución, EIN, dirección, fecha de constitución y actividad de la LLC, el nombre,
+            email y teléfono de la persona de contacto, y de cada socio su nombre, número de
+            pasaporte, nacionalidad, dirección de residencia, porcentaje de participación, dinero
+            aportado y sacado durante el año y, si lo tiene, su ITIN; además, los importes del
+            ejercicio (ingresos, gastos y saldos a 1 de enero y a 31 de diciembre), si hay bienes o
+            préstamos, si hubo cambios de socios y las confirmaciones que marcas. El pago de esos
+            servicios se hace en Whop, fuera de esta web: no vemos ni guardamos los datos de tu tarjeta. También guardamos la página
             desde la que escribiste, los parámetros de campaña (UTM) si venían en el enlace, un
             identificador calculado a partir de tu IP —no la IP en claro— y el identificador de tu
             navegador.

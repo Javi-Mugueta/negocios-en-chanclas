@@ -13,12 +13,15 @@ const ZONA = "Europe/Madrid";
 const RESEND_URL = "https://api.resend.com/emails";
 const TIMEOUT_MS = 8000;
 
-export const AVISO_PAGO =
-  "El cliente ha llegado al pago; el pago se confirma en Stripe (client_reference_id = id de este lead).";
+/** El pago de Whop se cruza con la ficha por el ID del plan y el email del cliente. */
+export function avisoPago(idServicio: string | null): string {
+  const plan = idServicio ? `del plan ${idServicio} ` : "";
+  return `El cliente ha llegado al pago; el pago se confirma en Whop: busca el pago ${plan}con el email de este lead.`;
+}
 
-/** Importe sin enlace de Stripe: la web le dice al cliente que le enviamos el enlace de pago por email. */
+/** Sin enlace de Whop para ese servicio: la web le dice al cliente que le enviamos el enlace de pago por email. */
 export const AVISO_PAGO_MANUAL =
-  "Este importe todavía no tiene enlace de Stripe: hay que enviarle al cliente el enlace de pago por email (con client_reference_id = id de este lead).";
+  "Este servicio todavía no tiene enlace de Whop: hay que enviarle al cliente el enlace de pago por email.";
 
 /** Plan del asistente en el asunto. */
 const PLAN_ASUNTO: Record<string, string> = {
@@ -88,12 +91,40 @@ const ETIQUETAS: Record<string, string> = {
   repartoOtro: "Reparto acordado",
   pactoSalida: "Quieren pactar la salida de un socio",
   confirmaSocios: "Confirma que los demás socios aceptan",
+  idServicio: "ID de servicio (plan de Whop)",
+  primeraVez: "Primera vez que presenta el Form 1065",
+  ingresos: "Ingresos totales del año (USD)",
+  gastos: "Gastos totales del año (USD)",
+  saldoInicio: "Saldo a 1 de enero (USD)",
+  saldoFin: "Saldo a 31 de diciembre (USD)",
+  bienesPrestamos: "Bienes de valor o préstamos",
+  cambiosSocios: "Cambios de socios durante el año",
+  requisitosCumplidos: "Cumple los requisitos del Form 1065",
+  ningunoEeuuConfirma: "Confirma que ningún socio es persona de EE. UU.",
+  sociosAceptan: "Confirma que los demás socios aceptan",
 };
 
 /** Una línea por socio: «Ana Pérez · ana@… · España · española · 50 % · Persona». */
-function lineaSocio(socio: unknown): string {
+export function lineaSocio(socio: unknown): string {
   if (!socio || typeof socio !== "object") return valorLegible(socio);
   const s = socio as Record<string, unknown>;
+  const pct = (v: unknown) => `${String(v).replace(".", ",")} %`;
+  // Form 1065: pasaporte, porcentajes a 1 de enero y a 31 de diciembre, aportado, sacado e ITIN.
+  if (s.porcentajeInicio != null) {
+    return [
+      s.nombre,
+      s.pasaporte ? `pasaporte ${String(s.pasaporte)}` : null,
+      s.nacionalidad ? `nacionalidad ${String(s.nacionalidad)}` : null,
+      s.direccion ? `reside en ${String(s.direccion)}` : null,
+      `${pct(s.porcentajeInicio)} a 1-1 · ${pct(s.porcentajeFin)} a 31-12`,
+      s.aportaciones != null ? `aportó ${String(s.aportaciones)} USD` : null,
+      s.retiros != null ? `sacó ${String(s.retiros)} USD` : null,
+      s.itin ? `ITIN ${String(s.itin)}` : "sin ITIN",
+    ]
+      .filter((v) => v != null && v !== "")
+      .map(String)
+      .join(" · ");
+  }
   return [
     s.nombre,
     s.email,
@@ -162,12 +193,13 @@ function planDe(lead: DatosLead): string | null {
 /** El lead llega a una pantalla de pago: plan o varios socios del asistente, o cierre. */
 function llegaAPlanes(lead: DatosLead): boolean {
   if (lead.origen === "empezar") return lead.datos.caso === "plan" || lead.datos.caso === "varios";
-  return lead.servicio === "cierre-llc" || lead.servicio === "formularios-llc";
+  return lead.servicio === "cierre-llc" || lead.servicio === "formularios-llc" || lead.servicio === "formularios-1065";
 }
 
 function avisoPagoDe(lead: DatosLead): string | null {
   if (!llegaAPlanes(lead)) return null;
-  return lead.datos.pagoOnline === false ? AVISO_PAGO_MANUAL : AVISO_PAGO;
+  if (lead.datos.pagoOnline === false) return AVISO_PAGO_MANUAL;
+  return avisoPago(typeof lead.datos.idServicio === "string" ? lead.datos.idServicio : null);
 }
 
 function precioDe(lead: DatosLead): string | null {
@@ -185,6 +217,9 @@ export function asuntoAviso(lead: DatosLead): string {
   if (lead.origen === "empezar" && lead.datos.caso === "varios" && typeof lead.datos.alta === "object" && lead.datos.alta) {
     const n = (lead.datos.alta as Record<string, unknown>).numSocios;
     if (typeof n === "number") partes.push(`${n} socios`);
+  }
+  if (lead.servicio === "formularios-1065" && typeof lead.datos.numSocios === "number") {
+    partes.push(`${lead.datos.numSocios} socios`);
   }
   const estado = lead.datos.estado ?? lead.datos.estadoConstitucion;
   if (llegaAPlanes(lead) && typeof estado === "string" && estado) partes.push(estado);
@@ -218,6 +253,10 @@ export function filasAviso(lead: DatosLead, id: string | null, fecha: Date): Fil
 
   for (const [clave, valor] of Object.entries(lead.datos)) {
     if (clave === "precio") continue;
+    if (clave === "socios" && Array.isArray(valor)) {
+      valor.forEach((socio, i) => filas.push([`Socio ${i + 1}`, lineaSocio(socio)]));
+      continue;
+    }
     if (clave === "alta" && valor && typeof valor === "object" && !Array.isArray(valor)) {
       for (const [k, v] of Object.entries(valor as Record<string, unknown>)) {
         if (k === "socios" && Array.isArray(v)) {

@@ -38,7 +38,8 @@ export function ContactForm({ servicioInicial, mensajeInicial }: { servicioInici
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState("");
   const pedido = servicioInicial ? (ALIAS[servicioInicial] ?? servicioInicial) : undefined;
-  const inicial = opciones.some((o) => o.value === pedido) ? pedido! : "en-regla";
+  // Sin `?servicio=` (o con uno que no existe), el desplegable sale vacío y obliga a elegir.
+  const inicial = opciones.some((o) => o.value === pedido) ? pedido! : "";
   const [servicio, setServicio] = useState(inicial);
   const avisoServicio = avisosContacto[servicio];
 
@@ -135,8 +136,13 @@ export function ContactForm({ servicioInicial, mensajeInicial }: { servicioInici
             name="servicio"
             value={servicio}
             onChange={(e) => setServicio(e.target.value)}
-            className={cn(field, claseSelect)}
+            required
+            className={cn(field, claseSelect, !servicio && "text-tinta/50")}
+            aria-invalid={!!errors.servicio}
           >
+            <option value="" disabled>
+              Elige una opción
+            </option>
             {opciones.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

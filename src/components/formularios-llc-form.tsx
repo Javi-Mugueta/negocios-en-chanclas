@@ -12,7 +12,6 @@ import { leerAtribucion } from "@/lib/atribucion";
 import {
   avisoEmailPago,
   contacto,
-  enlaceStripe,
   estadosConstitucionDestacados,
   estadosConstitucionResto,
   formulariosLlc,
@@ -41,7 +40,6 @@ export function FormulariosLlcForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState("");
   const [ein, setEin] = useState("");
-  const [referencia, setReferencia] = useState<string | null>(null);
   const [emailPago, setEmailPago] = useState("");
   const pagoRef = useRef<HTMLHeadingElement>(null);
 
@@ -86,7 +84,6 @@ export function FormulariosLlcForm() {
       const json = (await res.json().catch(() => ({}))) as {
         errors?: Record<string, string>;
         error?: string;
-        id?: string | null;
       };
       if (!res.ok) {
         if (json.errors && Object.keys(json.errors).length > 0) {
@@ -101,7 +98,6 @@ export function FormulariosLlcForm() {
         setEstado("error");
         return;
       }
-      setReferencia(json.id ?? null);
       setEmailPago(valor("email").trim().toLowerCase());
       setEstado("pago");
       form.reset();
@@ -125,10 +121,10 @@ export function FormulariosLlcForm() {
         </h2>
         <p className="mt-4 max-w-xl text-arena/75">
           Hemos guardado tus datos. Para completar la contratación del servicio, paga{" "}
-          {formulariosLlc.precio} con tarjeta en Stripe.
+          {formulariosLlc.precio} con tarjeta en Whop.
         </p>
         <a
-          href={enlaceStripe(formulariosLlc.pago, { id: referencia, email: emailPago })}
+          href={formulariosLlc.pago}
           className="group mt-8 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none sm:w-auto"
         >
           Pagar {formulariosLlc.precio}

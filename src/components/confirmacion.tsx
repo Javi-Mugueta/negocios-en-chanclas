@@ -58,7 +58,7 @@ export function Confirmacion({
 }
 
 /**
- * Cuando el importe todavía no tiene enlace de Stripe: los datos ya están guardados
+ * Cuando el servicio todavía no tiene enlace de Whop: los datos ya están guardados
  * y el pago se cierra por contacto.
  */
 export function PagoPorContacto({
