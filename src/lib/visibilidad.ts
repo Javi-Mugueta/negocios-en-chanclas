@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { formularios1065 } from "@/lib/site";
 
 /**
  * /formularios-llc está a la vista por defecto.
@@ -64,6 +65,15 @@ export function formulariosAbiertos(ahora: Date = new Date()): boolean {
   const lanzamiento = leerLanzamiento(valor);
   if (!lanzamiento) return false;
   return ahora.getTime() >= lanzamiento.getTime();
+}
+
+/**
+ * Form 1065 + K-1: se admiten datos hasta la fecha límite (1 de marzo, hora de Madrid), sin prórroga.
+ * Desde ese momento la opción «Tiene varios socios» muestra el aviso de plazo cerrado.
+ */
+export function plazo1065Abierto(ahora: Date = new Date(), limite: string = formularios1065.fechaLimite): boolean {
+  const fin = leerLanzamiento(limite);
+  return !!fin && ahora.getTime() < fin.getTime();
 }
 
 /** Igual que `formulariosAbiertos`, pero obliga a renderizar en cada petición (no en el build). */

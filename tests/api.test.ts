@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, expect, test, vi } from "vitest";
 import bcrypt from "bcryptjs";
 import type { BaseDatos } from "@/lib/db";
 import { crearDbPrueba, vaciar } from "./db";
+import { FORMULARIO_1065_OK } from "./formulario-1065";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
 process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
@@ -21,6 +22,7 @@ const { POST: empezar } = await import("@/app/api/empezar/route");
 const { POST: encargo } = await import("@/app/api/encargo/route");
 const { POST: formularios } = await import("@/app/api/formularios-llc/route");
 const { POST: cierre } = await import("@/app/api/cierra-tu-llc/route");
+const { POST: formularios1065 } = await import("@/app/api/formularios-1065/route");
 const { POST: login } = await import("@/app/api/panel/login/route");
 const { POST: logout } = await import("@/app/api/panel/logout/route");
 const { GET: listar } = await import("@/app/api/panel/leads/route");
@@ -387,6 +389,39 @@ test("formularios LLC valida EIN, nombre de la LLC, estado, importes y las tres 
   expect(filas).toHaveLength(0);
 });
 
+test("Form 1065 guarda la LLC y los socios sin escribirlos en el log", async () => {
+  delete process.env.NEC_FORMULARIOS_LAUNCH;
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const res = await formularios1065(post("/api/formularios-1065", FORMULARIO_1065_OK));
+  expect(res.status).toBe(200);
+  const cuerpo = (await res.json()) as { ok: boolean; id: string };
+  expect(cuerpo.id).toMatch(/^[0-9a-f-]{36}$/);
+  const filas = await estado.db!.query("select origen, servicio, nombre, email, telefono, datos from nec.leads");
+  expect(filas).toHaveLength(1);
+  expect(filas[0]).toMatchObject({ origen: "contacto", servicio: "formularios-1065", nombre: "Lucía Martín", email: "lucia@example.com" });
+  const datos = (typeof filas[0].datos === "string" ? JSON.parse(filas[0].datos) : filas[0].datos) as Record<string, unknown>;
+  expect(datos).toMatchObject({ numSocios: 3, idServicio: "NEC-603", precioTotal: 498, ein: "98-7654321" });
+  expect((datos.socios as unknown[]).length).toBe(3);
+  expect(JSON.stringify(log.mock.calls)).not.toContain("PAA111111");
+  log.mockRestore();
+});
+
+test("Form 1065 no admite datos desde el 1 de marzo (sin prórroga) ni requisitos sin cumplir", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2027-02-28T23:00:00.000Z"));
+  const tarde = await formularios1065(post("/api/formularios-1065", FORMULARIO_1065_OK));
+  expect(tarde.status).toBe(410);
+  expect(((await tarde.json()) as { error: string }).error).toBe(
+    "El plazo para este año está cerrado. Escríbenos y vemos qué podemos hacer.",
+  );
+  vi.useRealTimers();
+  const noCumple = await formularios1065(
+    post("/api/formularios-1065", { ...FORMULARIO_1065_OK, requisitos: { ...FORMULARIO_1065_OK.requisitos, alDia: "no" } }),
+  );
+  expect(noCumple.status).toBe(422);
+  expect(await estado.db!.query("select id from nec.leads")).toHaveLength(0);
+});
+
 const cierreOk = {
   nombre: "Ana Pérez García",
   email: "Ana@Example.com",
@@ -435,7 +470,8 @@ test("cierre de LLC guarda la consulta con servicio cierre-llc", async () => {
   expect(delaware.status).toBe(200);
   const [fila] = await estado.db!.query("select datos from nec.leads order by created_at desc limit 1");
   expect(JSON.stringify(fila.datos)).toContain('"precioTotal":687');
-  expect(JSON.stringify(fila.datos)).toContain('"pagoOnline":false');
+  expect(JSON.stringify(fila.datos)).toContain('"pagoOnline":true');
+  expect(JSON.stringify(fila.datos)).toContain('"idServicio":"NEC-304"');
 });
 
 test("cierre de LLC no admite otro estado, dos o más socios ni faltar las casillas", async () => {
@@ -489,7 +525,6 @@ test("el asistente guarda el plan elegido solo al crear una LLC", async () => {
     }),
   );
   expect(res.status).toBe(200);
-  // El id vuelve al asistente para el client_reference_id de Stripe.
   const cuerpo = (await res.json()) as { ok: boolean; id: string };
   expect(cuerpo.id).toMatch(/^[0-9a-f-]{36}$/);
   const filas = await estado.db!.query("select datos from nec.leads");

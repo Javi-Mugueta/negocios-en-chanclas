@@ -50,6 +50,8 @@ import {
 import {
   dolares,
   enlacePago,
+  idApertura,
+  idAperturaVarios,
   ESTADO_REFERENCIA,
   ESTADOS_LLC,
   esEstadoLlc,
@@ -69,7 +71,6 @@ import {
   checklistPresentacion,
   cierreLlc,
   contacto,
-  enlaceStripe,
   estadosConstitucionDestacados,
   estadosConstitucionResto,
   formularios1065,
@@ -246,8 +247,6 @@ export function FormationWizard({
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState("");
   const [firmaGuardada, setFirmaGuardada] = useState<string | null>(null);
-  /** Id del lead guardado: va como client_reference_id en Stripe. */
-  const [referencia, setReferencia] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const router = useRouter();
   const caso = casoAsistente(r);
@@ -449,7 +448,6 @@ export function FormationWizard({
         return;
       }
       setFirmaGuardada(firma);
-      setReferencia(json.id ?? null);
       irA(paso + 1);
     } catch {
       setErrorEnvio("No hemos podido guardar tus respuestas.");
@@ -1684,7 +1682,6 @@ export function FormationWizard({
             estado={estadoLlc}
             caso={caso}
             plan={plan}
-            referencia={referencia}
             formulariosAbiertos={formulariosAbiertos}
             resumen={resumen}
             onEditar={irA}
@@ -1999,7 +1996,6 @@ function Resultado({
   estado,
   caso,
   plan,
-  referencia,
   formulariosAbiertos,
   resumen,
   onEditar,
@@ -2011,7 +2007,6 @@ function Resultado({
   estado: ClaveEstadoLlc | null;
   caso: Caso | null;
   plan?: PlanAsistente;
-  referencia: string | null;
   formulariosAbiertos: boolean;
   resumen: { paso: number; k: string; v: string }[];
   onEditar: (i: number) => void;
@@ -2055,7 +2050,6 @@ function Resultado({
               plan={p}
               estado={estado}
               renovacion={renovacion.texto}
-              referencia={referencia}
               email={email}
             />
           ))}
@@ -2085,7 +2079,8 @@ function Resultado({
   } else if (caso === "varios" && estado) {
     const socios = r.socios.length;
     const precio = precioAperturaVarios(estado, socios);
-    const pago = enlacePago("varios", precio.total);
+    // Plan de Whop por ID (varios socios + número de socios + estado), nunca por importe.
+    const pago = enlacePago(idAperturaVarios(estado, socios));
     titular = (
       <>
         {saludo}lo vuestro es una{" "}
@@ -2125,11 +2120,9 @@ function Resultado({
         <div className="mt-7">
           {pago ? (
             <>
-              <CtaLink href={enlaceStripe(pago, { id: referencia, email })}>Pagar {dolares(precio.total)}</CtaLink>
+              <CtaLink href={pago}>Pagar {dolares(precio.total)}</CtaLink>
               {email && (
-                <p className="mt-4 max-w-xl text-sm text-arena/85">
-                  Usa en Stripe el mismo email que nos has dado ({email}). Así unimos vuestro pago con vuestros datos.
-                </p>
+                <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(email, { vosotros: true })}</p>
               )}
               <p className="mt-2 max-w-xl text-sm text-arena/60">{avisoPagoApertura}</p>
             </>
@@ -2190,11 +2183,22 @@ function Resultado({
       <>
         <p className="mt-3 max-w-xl text-arena/70">
           {r.tipo === "llc-2"
-            ? `${formularios1065.texto} Escríbenos y lo preparamos contigo.`
+            ? formulariosAbiertos
+              ? `${formularios1065.texto} Puedes enviarnos los datos desde el formulario del Form 1065 (${formularios1065.precio}).`
+              : `${formularios1065.texto} Escríbenos y lo preparamos contigo.`
             : "Si incumples alguno de los requisitos o tienes dudas, lo mejor es que te pongas en contacto con nosotros."}
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <CtaLink href="/contacto?servicio=en-regla">Ponte en contacto con nosotros</CtaLink>
+          {r.tipo === "llc-2" && formulariosAbiertos ? (
+            <>
+              <CtaLink href="/formularios-llc?socios=varios">Ir al formulario del Form 1065</CtaLink>
+              <CtaLink href="/contacto?servicio=en-regla" variant="light" arrow={false}>
+                Prefiero escribiros
+              </CtaLink>
+            </>
+          ) : (
+            <CtaLink href="/contacto?servicio=en-regla">Ponte en contacto con nosotros</CtaLink>
+          )}
           <CtaLink href={contacto.whatsapp.espana.href} variant="light" arrow={false}>
             WhatsApp {contacto.whatsapp.espana.visible}
           </CtaLink>
@@ -2290,23 +2294,21 @@ function Resultado({
   );
 }
 
-/** Plan Básico o Estándar con el precio del estado elegido. Sin enlace de Stripe para ese importe, a contacto. */
+/** Plan Básico o Estándar con el precio del estado elegido. Pago en Whop por el ID del plan y del estado. */
 function TarjetaPlan({
   plan,
   estado,
   renovacion,
-  referencia,
   email,
 }: {
   plan: Plan;
   estado: ClaveEstadoLlc;
   renovacion: string;
-  referencia: string | null;
   email: string;
 }) {
   const id = plan.id as PlanApertura;
   const precio = precioApertura(estado, id);
-  const pago = enlacePago(id, precio.total);
+  const pago = enlacePago(idApertura(estado, id));
   return (
     <article className="flex flex-col rounded-3xl bg-arena/10 p-6">
       <p className="font-mono text-xs tracking-[0.16em] text-sol uppercase">{plan.servicio}</p>
@@ -2328,7 +2330,7 @@ function TarjetaPlan({
         ))}
       </ul>
       {pago ? (
-        <CtaLink href={enlaceStripe(pago, { id: referencia, email })} className="mt-6 w-full">
+        <CtaLink href={pago} className="mt-6 w-full">
           {plan.cta}
         </CtaLink>
       ) : (

@@ -12,8 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { leerAtribucion } from "@/lib/atribucion";
 import { enlaceContacto } from "@/lib/asistente";
-import { dolares, enlacePago, ESTADOS_LLC, esEstadoLlc, LISTA_ESTADOS_LLC, nombreEstado, precioCierre } from "@/lib/precios";
-import { avisoEmailPago, cierreLlc, contacto, enlaceStripe, PLAZO } from "@/lib/site";
+import { dolares, enlacePago, ESTADOS_LLC, idCierre, esEstadoLlc, LISTA_ESTADOS_LLC, nombreEstado, precioCierre } from "@/lib/precios";
+import { avisoEmailPago, cierreLlc, contacto, PLAZO } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 type Estado = "idle" | "sending" | "pago" | "error";
@@ -73,7 +73,6 @@ export function CierraTuLlcForm() {
     formulariosPrevios: "",
     agenteAlDia: "",
   });
-  const [referencia, setReferencia] = useState<string | null>(null);
   const [emailPago, setEmailPago] = useState("");
   const [estadoPago, setEstadoPago] = useState<string>("");
   const pagoRef = useRef<HTMLHeadingElement>(null);
@@ -139,7 +138,6 @@ export function CierraTuLlcForm() {
         setEstado("error");
         return;
       }
-      setReferencia(json.id ?? null);
       setEmailPago(valor("email").trim().toLowerCase());
       setEstadoPago(valor("estadoConstitucion"));
       setEstado("pago");
@@ -154,7 +152,8 @@ export function CierraTuLlcForm() {
 
   if (estado === "pago" && esEstadoLlc(estadoPago)) {
     const precioPago = precioCierre(estadoPago);
-    const pago = enlacePago("cierre", precioPago.total);
+    // Plan de Whop por ID (cierre + estado), nunca por importe.
+    const pago = enlacePago(idCierre(estadoPago));
     return (
       <div className="rounded-[2rem] bg-tinta p-7 text-arena animate-in fade-in zoom-in-95 duration-500 sm:p-10">
         <span className="grid size-14 place-items-center rounded-full bg-chancla">
@@ -171,10 +170,10 @@ export function CierraTuLlcForm() {
           <>
             <p className="mt-4 max-w-xl text-arena/75">
               Hemos guardado tus datos. Para completar la contratación del servicio, paga{" "}
-              {dolares(precioPago.total)} con tarjeta en Stripe.
+              {dolares(precioPago.total)} con tarjeta en Whop.
             </p>
             <a
-              href={enlaceStripe(pago, { id: referencia, email: emailPago })}
+              href={pago}
               className="group mt-8 inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-chancla px-7 font-semibold text-white shadow-[0_8px_24px_-10px_var(--chancla)] transition-all duration-300 hover:bg-chancla-2 focus-visible:ring-4 focus-visible:ring-chancla/30 focus-visible:outline-none sm:w-auto"
             >
               Pagar {dolares(precioPago.total)}

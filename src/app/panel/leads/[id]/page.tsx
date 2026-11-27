@@ -4,6 +4,7 @@ import { ArrowLeft, Mail, MessageCircle } from "lucide-react";
 import { AccionesLead } from "@/components/panel/acciones-lead";
 import { EstadoPill } from "@/components/panel/estado-pill";
 import { PanelMarco } from "@/components/panel/marco";
+import { lineaSocio as lineaSocio1065 } from "@/lib/aviso";
 import { ETIQUETA_ESTADO, ETIQUETA_ORIGEN, etiquetaServicio } from "@/lib/etiquetas";
 import { formatFecha } from "@/lib/fechas";
 import { eventosDe, obtenerLead, type EventoLead, type Lead } from "@/lib/leads";
@@ -86,6 +87,32 @@ const CAMPOS_ALTA_SOCIOS: [string, string][] = [
   ["facturacionEtiqueta", "Facturación anual media esperada (2 primeros años)"],
 ];
 
+/** Form 1065 + K-1 (varios socios): orden y etiquetas de la ficha. Los socios van aparte. */
+const CAMPOS_1065: [string, string][] = [
+  ["ejercicio", "Ejercicio"],
+  ["nombreLlc", "Nombre de la LLC"],
+  ["estadoConstitucion", "Estado de constitución"],
+  ["ein", "EIN"],
+  ["direccionLlc", "Dirección de la LLC en EE. UU."],
+  ["fechaConstitucion", "Fecha de constitución"],
+  ["actividad", "Actividad"],
+  ["primeraVez", "Primera vez que presenta el Form 1065"],
+  ["numSocios", "Número de socios"],
+  ["ingresos", "Ingresos totales del año (USD)"],
+  ["gastos", "Gastos totales del año (USD)"],
+  ["saldoInicio", "Saldo a 1 de enero (USD)"],
+  ["saldoFin", "Saldo a 31 de diciembre (USD)"],
+  ["bienesPrestamos", "Bienes de valor o préstamos"],
+  ["cambiosSocios", "Cambios de socios durante el año"],
+];
+
+const CHECKS_1065: [string, string][] = [
+  ["requisitosCumplidos", "Cumple los 6 requisitos del servicio"],
+  ["datosCorrectos", "Los datos son correctos y completos, y soy el responsable de su veracidad"],
+  ["ningunoEeuuConfirma", "Ningún socio es ciudadano ni residente fiscal en EE. UU."],
+  ["sociosAceptan", "Los demás socios conocen y aceptan esta solicitud"],
+];
+
 const CHECKS_FORMULARIOS: [string, string][] = [
   ["unicoSocio", "Soy el único socio de la LLC"],
   ["resideFuera", "Resido fuera de EE. UU."],
@@ -118,9 +145,11 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
   const whatsapp = enlaceWhatsapp(lead.telefono);
   const esFormularios = lead.servicio === "formularios-llc";
   const esCierre = lead.servicio === "cierre-llc";
+  const es1065 = lead.servicio === "formularios-1065";
+  const socios1065 = es1065 && Array.isArray(lead.datos.socios) ? lead.datos.socios : [];
   const alta = datosAlta(lead.datos);
   const respuestas = Object.entries(lead.datos).filter(([clave, valor]) => {
-    if (esFormularios || esCierre) return false;
+    if (esFormularios || esCierre || es1065) return false;
     if (!(clave in CAMPOS)) return false;
     if (clave === "nombreLlc" && alta) return false;
     if (clave === "nombreLlc" && (valor == null || valor === "") && lead.datos.sinNombre === true) return false;
@@ -205,6 +234,33 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
               <p className="mt-4 text-xs text-tinta/55">
                 {textoPago(lead)}
               </p>
+            </section>
+          )}
+
+          {es1065 && (
+            <section className="rounded-[1.5rem] border border-tinta/10 bg-card p-5">
+              <h2 className="text-lg font-bold">Form 1065 + K-1 (varios socios)</h2>
+              <dl className="mt-4 space-y-3 text-sm">
+                <Fila k="Persona de contacto" v={lead.nombre} />
+                {CAMPOS_1065.map(([clave, etiqueta]) => {
+                  const valor = lead.datos[clave];
+                  return <Fila key={clave} k={etiqueta} v={valor == null || valor === "" ? "—" : String(valor)} />;
+                })}
+                <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                  <dt className="text-tinta/50">Socios ({socios1065.length})</dt>
+                  <dd>
+                    <ol className="list-decimal space-y-1 pl-5">
+                      {socios1065.map((socio, i) => (
+                        <li key={i} className="break-words">{lineaSocio1065(socio)}</li>
+                      ))}
+                    </ol>
+                  </dd>
+                </div>
+                {CHECKS_1065.map(([clave, etiqueta]) => (
+                  <Fila key={clave} k={etiqueta} v={lead.datos[clave] === true ? "Marcado" : "No"} />
+                ))}
+              </dl>
+              <p className="mt-4 text-xs text-tinta/55">{textoPago(lead)}</p>
             </section>
           )}
 
@@ -402,11 +458,16 @@ function lineaSocio(socio: unknown): string {
     .join(" · ");
 }
 
-/** Cómo se cruza el pago: Stripe con la referencia o, sin enlace para ese importe, enlace enviado a mano. */
+/**
+ * Cómo se cruza el pago: en Whop, por el ID del plan y el email del cliente (los enlaces de Whop
+ * no llevan referencia). Sin enlace para ese servicio, el enlace se envía a mano.
+ */
 function textoPago(lead: Lead): string {
   const precio = typeof lead.datos.precio === "string" ? ` ${lead.datos.precio}.` : "";
+  const id = typeof lead.datos.idServicio === "string" ? lead.datos.idServicio : null;
   if (lead.datos.pagoOnline === false) {
-    return `Precio:${precio} Este importe no tiene enlace de Stripe: envía al cliente el enlace de pago a mano con la referencia ${lead.id}.`;
+    return `Precio:${precio} Este servicio no tiene enlace de Whop: envía al cliente el enlace de pago a mano.`;
   }
-  return `${precio ? `Precio:${precio} ` : ""}El pago se hace en Stripe, fuera de esta web. Para cruzarlo, busca en Stripe la referencia ${lead.id}.`;
+  const plan = id ? `del plan ${id} ` : "";
+  return `${precio ? `Precio:${precio} ` : ""}El pago se hace en Whop, fuera de esta web. Para cruzarlo, busca en Whop el pago ${plan}con el email ${lead.email}.`;
 }

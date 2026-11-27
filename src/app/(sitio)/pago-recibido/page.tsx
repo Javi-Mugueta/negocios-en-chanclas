@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Página de vuelta tras pagar en Stripe (`?servicio=`). Las cuatro piezas de la sección 0.4:
+ * Página de vuelta tras pagar en Whop (`?servicio=`; la URL de vuelta se configura en Whop). Las cuatro piezas de la sección 0.4:
  * confirmación, qué pasa ahora, cuándo y WhatsApp.
  */
 const TEXTOS: Record<string, { queAhora: string; cuando?: string; orientativo?: boolean }> = {
@@ -26,6 +26,9 @@ const TEXTOS: Record<string, { queAhora: string; cuando?: string; orientativo?: 
   },
   formularios: {
     queAhora: "Preparamos tus formularios y te los enviamos para revisar antes de presentarlos.",
+  },
+  "formularios-1065": {
+    queAhora: "Preparamos vuestro Form 1065 y los K-1 y os los enviamos para revisar antes de presentarlos.",
   },
   cierre: {
     queAhora: "Empezamos la disolución de tu LLC y te vamos contando cada paso por email.",

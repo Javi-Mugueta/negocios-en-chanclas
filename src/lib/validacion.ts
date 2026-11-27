@@ -14,7 +14,9 @@ import {
   FACTURACION,
   GESTION,
   MENSAJES_ALTA,
+  porcentajeDe,
   REPARTO,
+  sumaCien,
   telefonoConPrefijo,
   TIPOS_SOCIO,
   validarAlta,
@@ -24,11 +26,19 @@ import {
 } from "@/lib/alta";
 import {
   CLAVES_ESTADOS_LLC,
+  dolares,
   enlacePago,
   esEstadoLlc,
+  FORMULARIOS_1065,
+  ID_FORMULARIOS_1120,
+  id1065,
+  idApertura,
+  idAperturaVarios,
+  idCierre,
   LISTA_ESTADOS_LLC,
   nombreEstado,
   PLANES,
+  precio1065,
   PLANES_APERTURA,
   precioApertura,
   precioAperturaVarios,
@@ -38,7 +48,7 @@ import {
   type PlanApertura,
 } from "@/lib/precios";
 import { CONSENTIMIENTO_VERSION } from "@/lib/privacidad";
-import { estadosConstitucion, PLANES_ASISTENTE } from "@/lib/site";
+import { estadosConstitucion, PLANES_ASISTENTE, requisitos1065 } from "@/lib/site";
 import {
   ETIQUETA_PUNTO,
   ETIQUETA_TIPO,
@@ -319,17 +329,20 @@ function preciosPlan(estado: ClaveEstadoLlc, plan: PlanApertura | null): Record<
     precio: precios
       .map(({ p, precio }) => `${PLANES_APERTURA[p].nombre}: ${resumenPrecio(precio)}`)
       .join(" · "),
-    ...(plan ? { precioTotal: precios[0].precio.total } : {}),
-    pagoOnline: precios.every(({ p, precio }) => enlacePago(p, precio.total) != null),
+    ...(plan ? { precioTotal: precios[0].precio.total, idServicio: idApertura(estado, plan) } : {}),
+    // Plan de Whop por ID (familia + estado), nunca por importe.
+    pagoOnline: precios.every(({ p }) => enlacePago(idApertura(estado, p)) != null),
   };
 }
 
 function precioVarios(estado: ClaveEstadoLlc, socios: number): Record<string, unknown> {
   const precio = precioAperturaVarios(estado, socios);
+  const id = idAperturaVarios(estado, socios);
   return {
     precio: resumenPrecio(precio),
     precioTotal: precio.total,
-    pagoOnline: enlacePago("varios", precio.total) != null,
+    idServicio: id,
+    pagoOnline: enlacePago(id) != null,
   };
 }
 
@@ -489,6 +502,8 @@ export function validarFormulariosLlc(
         unicoSocio: true,
         resideFuera: true,
         datosCorrectos: true,
+        idServicio: ID_FORMULARIOS_1120,
+        pagoOnline: enlacePago(ID_FORMULARIOS_1120) != null,
       },
     },
   };
@@ -609,10 +624,239 @@ export function validarCierreLlc(body: unknown): { errores: Record<string, strin
         cuando: cuandoOk === "otra" ? `${CIERRE_CUANDO.otra}: ${cuandoOtra}` : CIERRE_CUANDO[cuandoOk],
         precio: resumenPrecio(precio),
         precioTotal: precio.total,
-        pagoOnline: enlacePago("cierre", precio.total) != null,
+        idServicio: idCierre(estadoOk),
+        pagoOnline: enlacePago(idCierre(estadoOk)) != null,
         datosCorrectos: true,
         confirmaAlDia: true,
         aceptaPrecio: true,
+      },
+    },
+  };
+}
+
+// --- Form 1065 + K-1 (LLC de varios socios, `formularios-1065.md`) ---
+
+export const SI_NO_NOSE = { si: "Sí", no: "No", "no-se": "No lo sé" } as const;
+export const SI_NO = { si: "Sí", no: "No" } as const;
+export const ITIN_RE = /^9\d{2}-\d{2}-\d{4}$/;
+export const DESVIO_1065_REQUISITOS =
+  "Tu caso necesita un análisis personalizado. Escríbenos y lo vemos.";
+export const DESVIO_1065_CAMBIOS =
+  "Si hubo cambios de socios durante el año, el Form 1065 se complica: escríbenos y lo preparamos contigo.";
+
+/** «912345678» o «912-34-5678» → «912-34-5678». */
+export function formatoItin(valor: string): string {
+  const cifras = valor.replace(/\D/g, "").slice(0, 9);
+  if (cifras.length <= 3) return cifras;
+  if (cifras.length <= 5) return `${cifras.slice(0, 3)}-${cifras.slice(3)}`;
+  return `${cifras.slice(0, 3)}-${cifras.slice(3, 5)}-${cifras.slice(5)}`;
+}
+
+const CAMPOS_LLC_1065: CampoTexto[] = [
+  { clave: "nombreLlc", max: 120, error: "Escribe el nombre de la LLC." },
+  { clave: "direccionLlc", max: 300, error: "Escribe la dirección de la LLC en EE. UU." },
+  { clave: "actividad", max: 200, error: "Describe la actividad en una frase, en inglés." },
+  { clave: "nombre", max: 120, error: "Escribe el nombre de la persona de contacto." },
+];
+
+const CAMPOS_SOCIO_1065: CampoTexto[] = [
+  { clave: "nombre", max: 120, error: "Escribe el nombre y apellidos como aparecen en el pasaporte." },
+  { clave: "pasaporte", max: 30, error: "Escribe el número de pasaporte." },
+  { clave: "nacionalidad", max: 80, error: "Escribe la nacionalidad." },
+  { clave: "direccion", max: 300, error: "Escribe la dirección completa de residencia." },
+];
+
+const CHECKS_1065 = {
+  datosCorrectos: "Debes confirmar que los datos son correctos y completos.",
+  ningunoEeuuConfirma: "Debes confirmar que ningún socio es ciudadano ni residente fiscal en EE. UU.",
+  sociosAceptan: "Debes confirmar que los demás socios conocen y aceptan esta solicitud.",
+} as const;
+
+export type Socio1065 = {
+  nombre: string;
+  pasaporte: string;
+  nacionalidad: string;
+  direccion: string;
+  porcentajeInicio: number;
+  porcentajeFin: number;
+  sinCambios: boolean;
+  aportaciones: string;
+  retiros: string;
+  itin: string | null;
+};
+
+/**
+ * Form 1065 + K-1 del ejercicio 2026: de 2 a 10 socios, todos personas físicas y de fuera de EE. UU.
+ * Lleva pasaportes e importes: los errores nunca repiten el valor recibido.
+ */
+export function validarFormularios1065(
+  body: unknown,
+): { errores: Record<string, string> } | { datos: DatosLead } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { errores: { formulario: "Revisa los datos e inténtalo de nuevo." } };
+  }
+  const raw = body as Record<string, unknown>;
+  const errores: Record<string, string> = {};
+  const limpio = (v: unknown) => texto(v).replace(/\s+/g, " ");
+
+  // Requisitos: todos «Sí». Un «No» o «No lo sé» va a contacto (el formulario no se envía).
+  const req = raw.requisitos && typeof raw.requisitos === "object" ? (raw.requisitos as Record<string, unknown>) : {};
+  for (const { clave } of requisitos1065) {
+    const v = opcion(SI_NO_NOSE, req[clave]);
+    if (!v) errores[`requisitos.${clave}`] = "Responde a este requisito.";
+    else if (v !== "si") errores[`requisitos.${clave}`] = DESVIO_1065_REQUISITOS;
+  }
+
+  const valores: Record<string, string> = {};
+  for (const campo of CAMPOS_LLC_1065) {
+    const valor = limpio(raw[campo.clave]);
+    if (!valor || valor.length > campo.max) errores[campo.clave] = campo.error;
+    valores[campo.clave] = valor;
+  }
+  if (!errores.nombreLlc && !/\bLLC$/i.test(valores.nombreLlc)) {
+    errores.nombreLlc = "El nombre tiene que terminar en «LLC».";
+  }
+  const estadoConstitucion = texto(raw.estadoConstitucion);
+  if (!estadosConstitucion.includes(estadoConstitucion)) {
+    errores.estadoConstitucion = "Elige el estado de constitución de la LLC.";
+  }
+  const ein = texto(raw.ein);
+  if (!EIN_RE.test(ein)) errores.ein = "El EIN tiene el formato XX-XXXXXXX (9 cifras).";
+  const fechaConstitucion = texto(raw.fechaConstitucion);
+  if (!fechaPasada(fechaConstitucion)) errores.fechaConstitucion = "Escribe una fecha de constitución válida.";
+  const primeraVez = opcion(SI_NO_NOSE, raw.primeraVez);
+  if (!primeraVez) errores.primeraVez = "Elige una opción.";
+
+  // Persona de contacto: nombre, email y teléfono con WhatsApp.
+  const email = texto(raw.email).toLowerCase();
+  if (!email || email.length > 200 || !emailValido(email)) errores.email = "Escribe un email válido.";
+  const telefono = texto(raw.telefono);
+  if (!telefonoConPrefijo(telefono)) errores.telefono = MENSAJES_ALTA.telefono;
+
+  // Socios: de 2 a 10.
+  const lista = Array.isArray(raw.socios) ? raw.socios : [];
+  const socios: Socio1065[] = [];
+  if (lista.length < FORMULARIOS_1065.minSocios || lista.length > FORMULARIOS_1065.maxSocios) {
+    errores.socios = `El servicio online es para LLC de ${FORMULARIOS_1065.minSocios} a ${FORMULARIOS_1065.maxSocios} socios.`;
+  } else {
+    lista.forEach((bruto, i) => {
+      const s = bruto && typeof bruto === "object" && !Array.isArray(bruto) ? (bruto as Record<string, unknown>) : {};
+      const e = (campo: string, msg: string) => (errores[`socios.${i}.${campo}`] = msg);
+      const v: Record<string, string> = {};
+      for (const campo of CAMPOS_SOCIO_1065) {
+        const valor = limpio(s[campo.clave]);
+        if (!valor || valor.length > campo.max) e(campo.clave, campo.error);
+        v[campo.clave] = valor;
+      }
+      if (!errores[`socios.${i}.pasaporte`] && !/^[A-Za-z0-9 -]{4,30}$/.test(v.pasaporte)) {
+        e("pasaporte", "El número de pasaporte solo lleva letras y números.");
+      }
+      const sinCambios = s.sinCambios === true;
+      const inicio = porcentajeDe(s.porcentajeInicio);
+      if (inicio == null) e("porcentajeInicio", "Escribe un porcentaje entre 0 y 100.");
+      const fin = sinCambios ? inicio : porcentajeDe(s.porcentajeFin);
+      if (!sinCambios && fin == null) e("porcentajeFin", "Escribe un porcentaje entre 0 y 100.");
+      const aportaciones = importeDe(s.aportaciones);
+      if (aportaciones == null) e("aportaciones", "Escribe el total en dólares, o 0.");
+      const retiros = importeDe(s.retiros);
+      if (retiros == null) e("retiros", "Escribe el total en dólares, o 0.");
+      // ITIN opcional: sin ITIN, el K-1 lleva el número de pasaporte.
+      const tieneItin = opcion(SI_NO, s.tieneItin);
+      let itin: string | null = null;
+      if (tieneItin === "si") {
+        itin = formatoItin(texto(s.itin));
+        if (!ITIN_RE.test(itin)) e("itin", "El ITIN tiene el formato 9XX-XX-XXXX.");
+      }
+      socios.push({
+        nombre: v.nombre,
+        pasaporte: v.pasaporte.toUpperCase(),
+        nacionalidad: v.nacionalidad,
+        direccion: v.direccion,
+        porcentajeInicio: inicio ?? 0,
+        porcentajeFin: fin ?? 0,
+        sinCambios,
+        aportaciones: aportaciones ?? "",
+        retiros: retiros ?? "",
+        itin,
+      });
+    });
+    const hayErrorPorcentaje = Object.keys(errores).some((k) => /^socios\.\d+\.porcentaje/.test(k));
+    if (!hayErrorPorcentaje) {
+      if (!sumaCien(socios.map((s) => s.porcentajeInicio))) {
+        errores.socios = "Los porcentajes a 1 de enero tienen que sumar 100 %.";
+      } else if (!sumaCien(socios.map((s) => s.porcentajeFin))) {
+        errores.socios = "Los porcentajes a 31 de diciembre tienen que sumar 100 %.";
+      }
+    }
+  }
+
+  // Los números de la LLC del año.
+  const importes = {
+    ingresos: "Escribe los ingresos totales en dólares, o 0.",
+    gastos: "Escribe los gastos totales en dólares, o 0.",
+    saldoInicio: "Escribe el saldo a 1 de enero en dólares, o 0.",
+    saldoFin: "Escribe el saldo a 31 de diciembre en dólares, o 0.",
+  } as const;
+  const numeros: Record<string, string> = {};
+  for (const [clave, error] of Object.entries(importes)) {
+    const valor = importeDe(raw[clave]);
+    if (valor == null) errores[clave] = error;
+    else numeros[clave] = valor;
+  }
+  const bienesPrestamos = opcion(SI_NO, raw.bienesPrestamos);
+  const bienesDetalle = texto(raw.bienesDetalle);
+  if (!bienesPrestamos) errores.bienesPrestamos = "Elige una opción.";
+  else if (bienesPrestamos === "si" && (!bienesDetalle || bienesDetalle.length > 2000)) {
+    errores.bienesDetalle = "Cuéntanos qué bienes compró la LLC o qué préstamos tiene.";
+  }
+  const cambiosSocios = opcion(SI_NO, raw.cambiosSocios);
+  if (!cambiosSocios) errores.cambiosSocios = "Elige una opción.";
+  else if (cambiosSocios === "si") errores.cambiosSocios = DESVIO_1065_CAMBIOS;
+
+  for (const [clave, error] of Object.entries(CHECKS_1065)) {
+    if (raw[clave] !== true) errores[clave] = error;
+  }
+  if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
+  if (Object.keys(errores).length) return { errores };
+
+  const numSocios = socios.length;
+  const id = id1065(numSocios);
+  const total = precio1065(numSocios);
+  return {
+    datos: {
+      origen: "contacto",
+      servicio: "formularios-1065",
+      nombre: valores.nombre,
+      email,
+      telefono,
+      mensaje: null,
+      pagina: limpiarPagina(raw.pagina),
+      utm: limpiarUtm(raw.utm),
+      datos: {
+        ejercicio: 2026,
+        nombreLlc: valores.nombreLlc,
+        estadoConstitucion,
+        ein,
+        direccionLlc: valores.direccionLlc,
+        fechaConstitucion,
+        actividad: valores.actividad,
+        primeraVez: SI_NO_NOSE[primeraVez!],
+        numSocios,
+        socios,
+        ingresos: numeros.ingresos,
+        gastos: numeros.gastos,
+        saldoInicio: numeros.saldoInicio,
+        saldoFin: numeros.saldoFin,
+        bienesPrestamos: bienesPrestamos === "si" ? `Sí: ${bienesDetalle}` : "No",
+        cambiosSocios: "No",
+        requisitosCumplidos: true,
+        datosCorrectos: true,
+        ningunoEeuuConfirma: true,
+        sociosAceptan: true,
+        precio: `${numSocios} socios · ${dolares(total)}`,
+        precioTotal: total,
+        idServicio: id,
+        pagoOnline: enlacePago(id) != null,
       },
     },
   };

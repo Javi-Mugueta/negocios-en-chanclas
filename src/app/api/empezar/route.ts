@@ -25,7 +25,6 @@ export async function POST(request: Request) {
     const ipHash = hashIp(ipDeLaPeticion(request));
     const { id } = await insertarLead(getDb(), validado.datos, { ipHash, userAgent: agente(request) });
     await avisarLead(validado.datos, id);
-    // El id va en el client_reference_id de Stripe para unir el pago con el alta.
     return json({ ok: true, id });
   } catch (error) {
     if (error instanceof LimiteConsultasError) {

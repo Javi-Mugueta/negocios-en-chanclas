@@ -8,7 +8,9 @@
 import {
   dolares,
   enlacePago,
+  FORMULARIOS_1065,
   FORMULARIOS_1120,
+  ID_FORMULARIOS_1120,
   LISTA_ESTADOS_CON_TASA,
   LISTA_ESTADOS_LLC,
   PLANES_APERTURA,
@@ -148,7 +150,7 @@ export const AVISO_PLAZO =
   "Este plazo es orientativo: puede variar por periodos vacacionales y festivos en Estados Unidos.";
 
 const AVISO_LEAVING =
-  "El pago se realizará a Leaving Vorkuta LLC directamente a través de Stripe, mercantil responsable de la prestación del servicio.";
+  "El pago se realizará a Leaving Vorkuta LLC directamente a través de Whop, mercantil responsable de la prestación del servicio.";
 
 /** Formularios LLC del ejercicio 2026. */
 export const formulariosLlc = {
@@ -160,16 +162,60 @@ export const formulariosLlc = {
   /** Mismo precio en cualquier estado: son formularios federales. */
   alcance:
     "Incluye la preparación y presentación de los formularios federales 1120 y 5472 ante el IRS, sea cual sea el estado de tu LLC. No incluye las obligaciones de tu estado (informe anual, franchise tax u otras), que son aparte.",
-  pago: enlacePago("formularios", FORMULARIOS_1120)!,
+  /** Plan NEC-401 de Whop. */
+  pago: enlacePago(ID_FORMULARIOS_1120)!,
   avisoPago: AVISO_LEAVING,
 };
 
-/** Formularios de varios socios (Form 1065 + K-1). El formulario de datos está por diseñar: va por contacto. */
+/** Formularios de varios socios: Form 1065 + K-1 (`formularios-1065.md`). */
 export const formularios1065 = {
+  ejercicio: 2026,
   nombre: "Form 1065 + K-1 (LLC de varios socios)",
+  titulo: "Formularios de tu LLC de varios socios: Form 1065 + K-1",
   precio: TEXTOS_PRECIO.formularios1065,
-  texto: `Si tu LLC tiene varios socios, cada año presenta ante el IRS el Form 1065 y un K-1 por socio (antes del 15 de marzo). Te lo preparamos y presentamos: ${TEXTOS_PRECIO.formularios1065}, sea cual sea el estado.`,
+  texto:
+    "Si tu LLC tiene dos o más socios, cada año presenta ante el IRS el Form 1065 y un K-1 por cada socio, antes del 15 de marzo. Nos pasas los datos del año, los preparamos y los presentamos por vosotros.",
+  alcance:
+    "Para LLC de cualquier estado. Solo formularios federales: las obligaciones de tu estado (informe anual, franchise tax…) van aparte.",
+  avisoPlazo:
+    "El Form 1065 vence el 15 de marzo. Para presentarlo a tiempo, necesitamos vuestros datos antes del 1 de marzo.",
+  plazoCerrado: "El plazo para este año está cerrado. Escríbenos y vemos qué podemos hacer.",
+  /** Fecha límite para recibir los datos (hora de Madrid). Sin prórroga (Form 7004) por ahora. */
+  fechaLimite: "2027-03-01T00:00",
+  minSocios: FORMULARIOS_1065.minSocios,
+  maxSocios: FORMULARIOS_1065.maxSocios,
+  masDeDiez: "¿Sois más de 10? Escríbenos y lo preparamos a medida.",
+  mensajeContacto: "Mi LLC tiene varios socios y necesito el Form 1065 + K-1.",
+  desvioRequisitos: "Tu caso necesita un análisis personalizado. Escríbenos y lo vemos.",
+  desvioCambios:
+    "Si hubo cambios de socios durante el año, el Form 1065 se complica: escríbenos y lo preparamos contigo.",
+  avisoPago: AVISO_LEAVING,
+  confirmacion:
+    "Preparamos vuestro Form 1065 y los K-1 y os los enviamos para revisar antes de presentarlos.",
 };
+
+/** Requisitos del Form 1065 (`formularios-1065.md`, sección 3). Un «No» o «No lo sé» va a contacto. */
+export const requisitos1065 = [
+  {
+    clave: "sociosPersonas",
+    texto:
+      "La LLC tiene entre 2 y 10 socios, y todos son personas físicas. Si algún socio es una empresa, este servicio no es para vosotros: escríbenos y lo preparamos a medida.",
+  },
+  { clave: "ningunoEeuu", texto: "Ningún socio es ciudadano estadounidense ni residente fiscal en EE. UU." },
+  {
+    clave: "partnership",
+    texto:
+      "La LLC tributa como partnership, que es lo normal en una LLC de varios socios: no habéis pedido que tribute como corporación.",
+  },
+  { clave: "sinPresencia", texto: "La LLC no tiene oficina, empleados ni almacén en EE. UU." },
+  {
+    clave: "alDia",
+    texto:
+      "La LLC está al día: activa en su estado, con los formularios de años anteriores presentados y el registered agent contratado.",
+  },
+  { clave: "sinCartasIrs", texto: "No habéis recibido cartas ni multas del IRS pendientes." },
+] as const;
+export type ClaveRequisito1065 = (typeof requisitos1065)[number]["clave"];
 
 /** Requisitos para contratar Formularios LLC (disclaimer de /formularios-llc). */
 export const requisitosFormularios = [
@@ -194,21 +240,13 @@ export const cierreLlc = {
 export const avisoPagoApertura = AVISO_LEAVING;
 
 /**
- * Enlace de pago de Stripe unido a la ficha guardada: `client_reference_id` (id del lead)
- * y `prefilled_email` (email del cliente). Sin id o sin email, se omite ese parámetro.
+ * Aviso junto a cada botón de pago: el pago de Whop se une con la ficha por el email
+ * (Whop no documenta cómo pasar una referencia en el enlace). `vosotros` en varios socios.
  */
-export function enlaceStripe(base: string, { id, email }: { id?: string | null; email?: string | null }): string {
-  const params = new URLSearchParams();
-  if (id) params.set("client_reference_id", id);
-  const correo = email?.trim();
-  if (correo) params.set("prefilled_email", correo);
-  const query = params.toString();
-  return query ? `${base}${base.includes("?") ? "&" : "?"}${query}` : base;
-}
-
-/** Aviso junto a cada botón de pago, por si el cliente cambia el email en Stripe. */
-export function avisoEmailPago(email: string): string {
-  return `Usa en Stripe el mismo email que nos has dado (${email.trim()}). Así unimos tu pago con tus datos.`;
+export function avisoEmailPago(email: string, { vosotros = false }: { vosotros?: boolean } = {}): string {
+  return vosotros
+    ? `Usa en Whop el mismo email que nos has dado (${email.trim()}). Así unimos vuestro pago con vuestros datos.`
+    : `Usa en Whop el mismo email que nos has dado (${email.trim()}). Así unimos tu pago con tus datos.`;
 }
 
 /** Avisos encima del formulario de contacto según el servicio marcado (`?servicio=`). */

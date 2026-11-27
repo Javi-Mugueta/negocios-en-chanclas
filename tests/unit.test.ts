@@ -6,7 +6,15 @@ import { cabeceraCookie, firmarSesion, verificarToken } from "@/lib/sesion";
 import { cabecerasSeguridad, valorCsp } from "@/lib/seguridad";
 import { esLocal, quitarSslMode } from "@/lib/db";
 import { enlaceWhatsapp } from "@/lib/telefono";
-import { esHoneypot, validarContacto, validarEmpezar } from "@/lib/validacion";
+import {
+  DESVIO_1065_CAMBIOS,
+  DESVIO_1065_REQUISITOS,
+  esHoneypot,
+  validarContacto,
+  validarEmpezar,
+  validarFormularios1065,
+} from "@/lib/validacion";
+import { FORMULARIO_1065_OK } from "./formulario-1065";
 import { casoAsistente } from "@/lib/asistente";
 import {
   erroresPasoAlta,
@@ -26,14 +34,22 @@ import {
   dolares,
   enlacePago,
   ESTADOS_LLC,
+  CLAVES_ESTADOS_LLC,
+  ID_FORMULARIOS_1120,
+  id1065,
+  idApertura,
+  idAperturaVarios,
+  idCierre,
+  PLANES,
+  PLANES_WHOP,
   precio1065,
   precioApertura,
   precioAperturaVarios,
   precioCierre,
   precioRenovacion,
 } from "@/lib/precios";
-import { avisoEmailPago, avisosContacto, enlaceStripe, estadosConstitucion, navegacion, planes } from "@/lib/site";
-import { formulariosAbiertos, leerLanzamiento } from "@/lib/visibilidad";
+import { avisoEmailPago, avisosContacto, estadosConstitucion, formulariosLlc, navegacion, planes } from "@/lib/site";
+import { formulariosAbiertos, leerLanzamiento, plazo1065Abierto } from "@/lib/visibilidad";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
 process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
@@ -222,7 +238,7 @@ describe("validación", () => {
     expect("errores" in validarEmpezar({ ...base, punto: "anual", tipo: "corp", estado: "Wyoming", nombreLLC: "X", requisitos: "si" })).toBe(true);
   });
 
-  test("el precio que se guarda es el del estado y dice si hay enlace de Stripe", () => {
+  test("el precio que se guarda es el del estado, con su ID de Whop", () => {
     const base = {
       punto: "crear",
       tipo: "llc-1",
@@ -234,10 +250,10 @@ describe("validación", () => {
       alta: ALTA_OK,
     };
     expect(validarEmpezar({ ...base, estado: "New Mexico", plan: "basico" })).toMatchObject({
-      datos: { datos: { precioTotal: 397, pagoOnline: true } },
+      datos: { datos: { precioTotal: 397, pagoOnline: true, idServicio: "NEC-101" } },
     });
     expect(validarEmpezar({ ...base, estado: "Texas", plan: "estandar" })).toMatchObject({
-      datos: { datos: { precioTotal: 797, pagoOnline: false, precio: "Plan Estándar: 797 $ = 497 $ + 300 $ (tasa del estado de Texas)" } },
+      datos: { datos: { precioTotal: 797, pagoOnline: true, idServicio: "NEC-206", precio: "Plan Estándar: 797 $ = 497 $ + 300 $ (tasa del estado de Texas)" } },
     });
     const sinPlan = validarEmpezar({ ...base, estado: "New Mexico" });
     if ("datos" in sinPlan) {
@@ -259,7 +275,8 @@ describe("validación", () => {
           estado: "Delaware",
           nombreLlc: "Tres Chanclas LLC",
           precioTotal: 736,
-          pagoOnline: false,
+          pagoOnline: true,
+          idServicio: "NEC-5034",
           altaCompleta: true,
           alta: {
             numSocios: 3,
@@ -350,7 +367,7 @@ describe("contenido", () => {
     expect(estadosConstitucion.slice(0, 3)).toEqual(["New Mexico", "Wyoming", "Delaware"]);
   });
 
-  test("los planes Básico y Estándar pasan por el asistente, pagan al final en Stripe e incluyen el Operating Agreement", () => {
+  test("los planes Básico y Estándar pasan por el asistente, pagan al final en Whop e incluyen el Operating Agreement", () => {
     for (const id of ["basico", "estandar"]) {
       const plan = planes.find((p) => p.id === id)!;
       expect(plan.href).toBe(`/empezar?plan=${id}`);
@@ -360,23 +377,61 @@ describe("contenido", () => {
     expect(planes[0].precio).toBe("Desde 397 $");
     expect(planes[1].precio).toBe("Desde 497 $");
     expect(planes[0].aviso).toContain("Renovación anual: 197 $/año + tasa anual del estado");
-    expect(enlacePago("basico", 397)).toMatch(/^https:\/\/buy\.stripe\.com\//);
-    expect(enlacePago("estandar", 497)).toMatch(/^https:\/\/buy\.stripe\.com\//);
+    expect(enlacePago(idApertura("New Mexico", "basico"))).toBe("https://whop.com/checkout/plan_5VH3J5ftPqXzW");
+    expect(enlacePago(idApertura("New Mexico", "estandar"))).toBe("https://whop.com/checkout/plan_oNfJVdjDNJbFv");
     expect(planes.find((p) => p.id === "encargo")!.href).toBe("/contacto?servicio=arranque");
   });
 
-  test("todo enlace de Stripe lleva client_reference_id y prefilled_email codificado", () => {
-    const base = "https://buy.stripe.com/abc";
-    const id = "00000000-0000-4000-8000-000000000001";
-    const url = new URL(enlaceStripe(base, { id, email: " ana+llc@example.com " }));
-    expect(url.origin + url.pathname).toBe(base);
-    expect(url.searchParams.get("client_reference_id")).toBe(id);
-    expect(url.searchParams.get("prefilled_email")).toBe("ana+llc@example.com");
-    expect(enlaceStripe(base, { id, email: "ana+llc@example.com" })).toContain("prefilled_email=ana%2Bllc%40example.com");
-    expect(enlaceStripe(base, { id: null, email: "" })).toBe(base);
-    expect(avisoEmailPago("ana@example.com")).toBe(
-      "Usa en Stripe el mismo email que nos has dado (ana@example.com). Así unimos tu pago con tus datos.",
+  test("los enlaces de Whop van tal cual (sin parámetros inventados) y el aviso pide el mismo email", () => {
+    for (const { enlace } of Object.values(PLANES_WHOP)) expect(enlace).toMatch(/^https:\/\/whop\.com\/checkout\/plan_[A-Za-z0-9]+$/);
+    expect(formulariosLlc.pago).toBe("https://whop.com/checkout/plan_3POGOwXrWoG72");
+    expect(avisoEmailPago(" ana@example.com ")).toBe(
+      "Usa en Whop el mismo email que nos has dado (ana@example.com). Así unimos tu pago con tus datos.",
     );
+    expect(avisoEmailPago("ana@example.com", { vosotros: true })).toBe(
+      "Usa en Whop el mismo email que nos has dado (ana@example.com). Así unimos vuestro pago con vuestros datos.",
+    );
+    expect(formulariosLlc.avisoPago).toBe(
+      "El pago se realizará a Leaving Vorkuta LLC directamente a través de Whop, mercantil responsable de la prestación del servicio.",
+    );
+  });
+
+  test("Whop: 94 IDs únicos, sin enlaces repetidos, y cada ID cobra el precio de la web", () => {
+    const ids = Object.keys(PLANES_WHOP);
+    expect(ids).toHaveLength(94);
+    expect(new Set(Object.values(PLANES_WHOP).map((p) => p.enlace)).size).toBe(94);
+    const vistos = new Set<string>();
+    const comprueba = (id: string | null, total: number) => {
+      expect(id).not.toBeNull();
+      expect(PLANES_WHOP[id as keyof typeof PLANES_WHOP].importe).toBe(total);
+      vistos.add(id!);
+    };
+    for (const e of CLAVES_ESTADOS_LLC) {
+      for (const p of PLANES) comprueba(idApertura(e, p), precioApertura(e, p).total);
+      comprueba(idCierre(e), precioCierre(e).total);
+      for (let n = 2; n <= 10; n++) comprueba(idAperturaVarios(e, n), precioAperturaVarios(e, n).total);
+    }
+    comprueba(ID_FORMULARIOS_1120, 169);
+    for (let n = 2; n <= 10; n++) comprueba(id1065(n), precio1065(n));
+    expect(vistos.size).toBe(94);
+    // Por ID, nunca por importe: 497 $ es Básico en Wyoming y Estándar en Nuevo México.
+    expect(idApertura("Wyoming", "basico")).toBe("NEC-103");
+    expect(idApertura("New Mexico", "estandar")).toBe("NEC-201");
+    expect(enlacePago("NEC-103")).not.toBe(enlacePago("NEC-201"));
+    expect(idAperturaVarios("Delaware", 3)).toBe("NEC-5034");
+    expect(idAperturaVarios("Nevada", 10)).toBe("NEC-5107");
+    expect(id1065(2)).toBe("NEC-602");
+    expect(id1065(10)).toBe("NEC-610");
+    expect(id1065(11)).toBeNull();
+    expect(idAperturaVarios("Texas", 1)).toBeNull();
+    expect(enlacePago(null)).toBeNull();
+  });
+
+  test("el Form 1065 admite datos hasta el 1 de marzo de 2027 (hora de Madrid), sin prórroga", () => {
+    expect(plazo1065Abierto(new Date("2026-11-27T12:00:00Z"))).toBe(true);
+    expect(plazo1065Abierto(new Date("2027-02-28T22:59:59Z"))).toBe(true);
+    expect(plazo1065Abierto(new Date("2027-02-28T23:00:00Z"))).toBe(false);
+    expect(plazo1065Abierto(new Date("2027-03-15T10:00:00Z"))).toBe(false);
   });
 
   test("contacto muestra aviso para C-Corp y encargo personalizado", () => {
@@ -428,9 +483,9 @@ describe("precios (precios.md)", () => {
     expect(precioCierre("New Mexico").texto).toBe("467 $ (tasa del estado incluida)");
     expect(precioCierre("Utah").texto).toBe("467 $ (Utah no cobra tasa de disolución)");
     expect(precioCierre("Delaware").texto).toBe("467 $ + 220 $ (tasa del estado de Delaware)");
-    // Solo hay enlace de 467 $: Nuevo México y Utah pagan online; el resto, por contacto.
-    expect(enlacePago("cierre", 467)).not.toBeNull();
-    expect(enlacePago("cierre", 687)).toBeNull();
+    // Cada estado tiene su plan de cierre en Whop (NEC-301 a NEC-307).
+    expect(enlacePago(idCierre("New Mexico"))).toBe("https://whop.com/checkout/plan_moy6kQ0Oxbkje");
+    expect(enlacePago(idCierre("Delaware"))).toBe("https://whop.com/checkout/plan_iIhfpWdmvyYEy");
   });
 });
 
@@ -582,5 +637,81 @@ describe("datos de alta del asistente", () => {
       expect(res.datos.datos.alta).toBeUndefined();
       expect(res.datos.datos.altaCompleta).toBeUndefined();
     }
+  });
+});
+
+describe("Form 1065 + K-1 (varios socios)", () => {
+  test("guarda la LLC, cada socio y el plan de Whop del número de socios", () => {
+    const r = validarFormularios1065(FORMULARIO_1065_OK);
+    if ("errores" in r) throw new Error(JSON.stringify(r.errores));
+    expect(r.datos.servicio).toBe("formularios-1065");
+    expect(r.datos.nombre).toBe("Lucía Martín");
+    expect(r.datos.email).toBe("lucia@example.com");
+    expect(r.datos.telefono).toBe("+34 611 22 33 44");
+    expect(r.datos.datos).toMatchObject({
+      numSocios: 3,
+      precioTotal: 498,
+      precio: "3 socios · 498 $",
+      idServicio: "NEC-603",
+      pagoOnline: true,
+      primeraVez: "Sí",
+      gastos: "12000.50",
+      cambiosSocios: "No",
+      bienesPrestamos: "No",
+    });
+    const socios = r.datos.datos.socios as Record<string, unknown>[];
+    expect(socios[0]).toMatchObject({ pasaporte: "PAA111111", porcentajeInicio: 50, porcentajeFin: 50, itin: null });
+    expect(socios[1]).toMatchObject({ itin: "912-34-5678", porcentajeFin: 30 });
+  });
+
+  test("un «No» o «No lo sé» en los requisitos, o cambios de socios, no se admite (va a contacto)", () => {
+    const noSe = validarFormularios1065({ ...FORMULARIO_1065_OK, requisitos: { ...FORMULARIO_1065_OK.requisitos, sociosPersonas: "no-se" } });
+    expect(noSe).toMatchObject({ errores: { "requisitos.sociosPersonas": DESVIO_1065_REQUISITOS } });
+    const no = validarFormularios1065({ ...FORMULARIO_1065_OK, requisitos: { ...FORMULARIO_1065_OK.requisitos, sinPresencia: "no" } });
+    expect(no).toMatchObject({ errores: { "requisitos.sinPresencia": DESVIO_1065_REQUISITOS } });
+    expect(validarFormularios1065({ ...FORMULARIO_1065_OK, requisitos: {} })).toMatchObject({
+      errores: { "requisitos.ningunoEeuu": "Responde a este requisito." },
+    });
+    expect(validarFormularios1065({ ...FORMULARIO_1065_OK, cambiosSocios: "si" })).toMatchObject({
+      errores: { cambiosSocios: DESVIO_1065_CAMBIOS },
+    });
+  });
+
+  test("de 2 a 10 socios y los porcentajes de cada fecha suman 100 %", () => {
+    const [a, b] = FORMULARIO_1065_OK.socios;
+    expect(validarFormularios1065({ ...FORMULARIO_1065_OK, socios: [a] })).toMatchObject({ errores: { socios: expect.any(String) } });
+    const once = Array.from({ length: 11 }, () => ({ ...a, porcentajeInicio: "9" }));
+    expect(validarFormularios1065({ ...FORMULARIO_1065_OK, socios: once })).toMatchObject({ errores: { socios: expect.any(String) } });
+    expect(validarFormularios1065({ ...FORMULARIO_1065_OK, socios: [a, b] })).toMatchObject({
+      errores: { socios: "Los porcentajes a 1 de enero tienen que sumar 100 %." },
+    });
+    const cambiaFin = [
+      { ...a, sinCambios: false, porcentajeFin: "60" },
+      { ...b, porcentajeInicio: "50", porcentajeFin: "50" },
+    ];
+    expect(validarFormularios1065({ ...FORMULARIO_1065_OK, socios: cambiaFin })).toMatchObject({
+      errores: { socios: "Los porcentajes a 31 de diciembre tienen que sumar 100 %." },
+    });
+    const diez = Array.from({ length: 10 }, () => ({ ...a, porcentajeInicio: "10" }));
+    const r = validarFormularios1065({ ...FORMULARIO_1065_OK, socios: diez });
+    expect(r).toMatchObject({ datos: { datos: { idServicio: "NEC-610", precioTotal: 841 } } });
+  });
+
+  test("valida ITIN, pasaporte, EIN, teléfono con prefijo, bienes y las tres casillas sin repetir los valores", () => {
+    const [a, b, c] = FORMULARIO_1065_OK.socios;
+    const r = validarFormularios1065({
+      ...FORMULARIO_1065_OK,
+      socios: [{ ...a, pasaporte: "PA!" }, { ...b, itin: "123" }, c],
+      ein: "987654321",
+      telefono: "611223344",
+      bienesPrestamos: "si",
+      bienesDetalle: "",
+      sociosAceptan: false,
+    });
+    if (!("errores" in r)) throw new Error("debería fallar");
+    expect(Object.keys(r.errores).sort()).toEqual(
+      ["bienesDetalle", "ein", "sociosAceptan", "socios.0.pasaporte", "socios.1.itin", "telefono"].sort(),
+    );
+    expect(JSON.stringify(r.errores)).not.toContain("PA!");
   });
 });
