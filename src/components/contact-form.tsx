@@ -176,7 +176,7 @@ export function ContactForm({ servicioInicial, mensajeInicial }: { servicioInici
         />
         <span>
           Acepto que Negocios en Chanclas use estos datos para responder a mi consulta, según su{" "}
-          <a href="/legal" className="font-medium text-tinta underline underline-offset-2">
+          <a href="/legal#privacidad" className="font-medium text-tinta underline underline-offset-2">
             política de privacidad
           </a>
           .

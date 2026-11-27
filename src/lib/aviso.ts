@@ -51,7 +51,7 @@ const ETIQUETAS: Record<string, string> = {
   paisResidencia: "País de residencia",
   facturacion: "Facturación (código)",
   facturacionEtiqueta: "Facturación anual esperada",
-  aceptaTerminos: "Términos aceptados",
+  aceptaTerminos: "Términos y Política de devoluciones aceptados",
   terminosVersion: "Versión de los términos",
   pasaporte: "Pasaporte",
   ejercicio: "Ejercicio",

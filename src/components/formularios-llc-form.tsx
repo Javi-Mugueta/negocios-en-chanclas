@@ -1,14 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowRight, CreditCard, Loader2, Lock } from "lucide-react";
+import { ArrowRight, CalendarClock, CreditCard, Loader2, Lock, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
+import { CtaLink } from "@/components/brand/cta";
 import { Confirmacion } from "@/components/confirmacion";
+import { RecordatorioTerminos, TextoAceptaTerminos } from "@/components/legal/acepta-terminos";
 import { Honeypot } from "@/components/honeypot";
 import { claseSelect } from "@/components/select-class";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { leerAtribucion } from "@/lib/atribucion";
+import { enlaceContacto } from "@/lib/asistente";
+import { ENLACE_PRIVACIDAD } from "@/lib/privacidad";
 import {
   avisoEmailPago,
   contacto,
@@ -35,7 +39,11 @@ function formatoEin(valor: string): string {
   return cifras.length > 2 ? `${cifras.slice(0, 2)}-${cifras.slice(2)}` : cifras;
 }
 
-export function FormulariosLlcForm() {
+/**
+ * `abierto` lo calcula el servidor con su hora (fecha límite del 1 de abril): con el plazo cerrado
+ * no se muestra el formulario, y la API también lo rechaza.
+ */
+export function FormulariosLlcForm({ abierto = true }: { abierto?: boolean }) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState("");
@@ -77,6 +85,7 @@ export function FormulariosLlcForm() {
           resideFuera: data.get("resideFuera") === "on",
           datosCorrectos: data.get("datosCorrectos") === "on",
           consentimiento: data.get("consentimiento") === "on",
+          aceptaTerminos: data.get("aceptaTerminos") === "on",
           nec_hp: valor("nec_hp"),
           ...leerAtribucion(),
         }),
@@ -130,6 +139,7 @@ export function FormulariosLlcForm() {
           Pagar {formulariosLlc.precio}
           <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </a>
+        <RecordatorioTerminos oscuro className="mt-4" />
         {emailPago && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(emailPago)}</p>}
         <p className="mt-3 max-w-xl text-sm text-arena/75">{formulariosLlc.alcance}</p>
         <p className="mt-3 max-w-xl text-sm text-arena/65">{formulariosLlc.avisoPago}</p>
@@ -141,6 +151,8 @@ export function FormulariosLlcForm() {
       </div>
     );
   }
+
+  if (!abierto) return <PlazoCerrado />;
 
   return (
     <form
@@ -263,7 +275,7 @@ export function FormulariosLlcForm() {
           <Importe name="aportaciones" invalid={!!errors.aportaciones} />
         </Field>
         <Field
-          label="Saldo total de las cuentas de la LLC a 31 de diciembre"
+          label="Saldo total de las cuentas de la LLC a 31 de diciembre. Si la LLC tiene criptomonedas, súmalas con su valor en USD"
           hint="El formulario 5472 lo requiere."
           name="saldo"
           error={errors.saldo}
@@ -283,10 +295,13 @@ export function FormulariosLlcForm() {
         <Check name="consentimiento" error={errors.consentimiento}>
           Acepto que Negocios en Chanclas use estos datos para preparar y presentar los formularios de
           mi LLC, según su{" "}
-          <a href="/legal" className="font-medium text-tinta underline underline-offset-2">
+          <a href={ENLACE_PRIVACIDAD} className="font-medium text-tinta underline underline-offset-2">
             política de privacidad
           </a>
           .
+        </Check>
+        <Check name="aceptaTerminos" error={errors.aceptaTerminos}>
+          <TextoAceptaTerminos />
         </Check>
       </fieldset>
 
@@ -306,6 +321,10 @@ export function FormulariosLlcForm() {
       )}
 
       <div>
+        <p className="mb-4 flex items-start gap-2 text-sm font-semibold text-tinta/80">
+          <CalendarClock className="mt-0.5 size-4 shrink-0 text-chancla-2" aria-hidden="true" />
+          {formulariosLlc.avisoPlazo}
+        </p>
         <button
           type="submit"
           disabled={estado === "sending"}
@@ -331,6 +350,27 @@ export function FormulariosLlcForm() {
         </p>
       </div>
     </form>
+  );
+}
+
+function PlazoCerrado() {
+  return (
+    <div role="status" className="rounded-[2rem] bg-tinta p-7 text-arena sm:p-10">
+      <CalendarClock className="size-8 text-sol" aria-hidden="true" />
+      <p className="mt-4 font-display text-2xl font-bold">{formulariosLlc.plazoCerrado}</p>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <CtaLink href={enlaceContacto("en-regla", formulariosLlc.mensajeContacto)}>Escríbenos</CtaLink>
+        <a
+          href={contacto.whatsapp.espana.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 font-semibold text-arena ring-1 ring-arena/30 transition hover:bg-arena/10"
+        >
+          <MessageCircle className="size-4" aria-hidden="true" />
+          WhatsApp {contacto.whatsapp.espana.visible}
+        </a>
+      </div>
+    </div>
   );
 }
 

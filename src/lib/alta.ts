@@ -3,6 +3,7 @@
  * Se usa en el cliente (qué paso es válido, botón Continuar) y en el servidor (validación con zod).
  */
 import { z } from "zod";
+import { ERROR_ACEPTA_TERMINOS } from "@/lib/privacidad";
 
 export const FACTURACION = {
   "menos-25k": "Menos de 25.000 $",
@@ -178,7 +179,7 @@ const MSG = {
   actividad: `Cuéntanos la actividad en al menos ${MIN_ACTIVIDAD} caracteres.`,
   paisResidencia: "Escribe tu país de residencia.",
   facturacion: "Elige una opción.",
-  aceptaTerminos: "Tienes que aceptar los Términos y Condiciones.",
+  aceptaTerminos: ERROR_ACEPTA_TERMINOS,
   consentimiento: "Necesitamos tu consentimiento.",
   numSocios: "Dinos cuántos socios sois.",
   masDeDiez: "Con más de 10 socios preparamos la LLC a medida: escríbenos.",

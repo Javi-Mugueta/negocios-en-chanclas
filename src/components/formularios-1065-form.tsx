@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
 import { Confirmacion, PagoPorContacto } from "@/components/confirmacion";
 import { Honeypot } from "@/components/honeypot";
+import { RecordatorioTerminos, TextoAceptaTerminos } from "@/components/legal/acepta-terminos";
 import { claseSelect } from "@/components/select-class";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import { porcentajeDe, sumaCien } from "@/lib/alta";
 import { enlaceContacto } from "@/lib/asistente";
 import { leerAtribucion } from "@/lib/atribucion";
 import { dolares, enlacePago, id1065, precio1065 } from "@/lib/precios";
+import { ENLACE_PRIVACIDAD } from "@/lib/privacidad";
 import {
   avisoEmailPago,
   contacto,
@@ -150,6 +152,7 @@ export function Formularios1065Form({ abierto }: { abierto: boolean }) {
           ningunoEeuuConfirma: data.get("ningunoEeuuConfirma") === "on",
           sociosAceptan: data.get("sociosAceptan") === "on",
           consentimiento: data.get("consentimiento") === "on",
+          aceptaTerminos: data.get("aceptaTerminos") === "on",
           nec_hp: valor("nec_hp"),
           ...leerAtribucion(),
         }),
@@ -214,6 +217,7 @@ export function Formularios1065Form({ abierto }: { abierto: boolean }) {
               Pagar {dolares(total)}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
             </a>
+            <RecordatorioTerminos oscuro className="mt-4" />
             {pago.email && (
               <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(pago.email, { vosotros: true })}</p>
             )}
@@ -412,10 +416,10 @@ export function Formularios1065Form({ abierto }: { abierto: boolean }) {
             <Field label="Gastos totales del año" hint="Basta con el total." name="gastos" error={errors.gastos}>
               <Importe name="gastos" invalid={!!errors.gastos} />
             </Field>
-            <Field label="Saldo total de las cuentas a 1 de enero" hint="Bancos, Stripe, PayPal…" name="saldoInicio" error={errors.saldoInicio}>
+            <Field label="Saldo total de las cuentas a 1 de enero. Si la LLC tiene criptomonedas, súmalas con su valor en USD" hint="Bancos, Stripe, PayPal…" name="saldoInicio" error={errors.saldoInicio}>
               <Importe name="saldoInicio" invalid={!!errors.saldoInicio} />
             </Field>
-            <Field label="Saldo total de las cuentas a 31 de diciembre" hint="Bancos, Stripe, PayPal…" name="saldoFin" error={errors.saldoFin}>
+            <Field label="Saldo total de las cuentas a 31 de diciembre. Si la LLC tiene criptomonedas, súmalas con su valor en USD" hint="Bancos, Stripe, PayPal…" name="saldoFin" error={errors.saldoFin}>
               <Importe name="saldoFin" invalid={!!errors.saldoFin} />
             </Field>
             <div className="space-y-3 sm:col-span-2">
@@ -471,10 +475,13 @@ export function Formularios1065Form({ abierto }: { abierto: boolean }) {
                 ))}
                 <Check name="consentimiento" error={errors.consentimiento}>
                   Acepto la{" "}
-                  <a href="/legal" className="font-medium text-tinta underline underline-offset-2">
+                  <a href={ENLACE_PRIVACIDAD} className="font-medium text-tinta underline underline-offset-2">
                     política de privacidad
                   </a>
                   .
+                </Check>
+                <Check name="aceptaTerminos" error={errors.aceptaTerminos}>
+                  <TextoAceptaTerminos />
                 </Check>
               </fieldset>
 

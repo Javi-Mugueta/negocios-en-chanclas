@@ -7,7 +7,7 @@ import { Formularios1065Form } from "@/components/formularios-1065-form";
 import { FormulariosLlcForm } from "@/components/formularios-llc-form";
 import { SelectorFormularios } from "@/components/selector-formularios";
 import { contacto, formularios1065, formulariosLlc, requisitosFormularios } from "@/lib/site";
-import { formulariosVisibles, plazo1065Abierto } from "@/lib/visibilidad";
+import { formulariosVisibles, plazo1065Abierto, plazo1120Abierto } from "@/lib/visibilidad";
 
 export const metadata: Metadata = {
   title: "Formularios LLC",
@@ -24,7 +24,9 @@ export default async function FormulariosLlcPage({
   // Si NEC_FORMULARIOS_LAUNCH está definida y aún no ha llegado, la página no existe: 404 y fuera del índice.
   if (!(await formulariosVisibles())) notFound();
   const { socios } = await searchParams;
-  // Sin prórroga: desde el 1 de marzo la opción de varios socios muestra el aviso de plazo cerrado.
+  // Fechas límite comprobadas con la hora del servidor (no la del navegador), igual que en la API:
+  // desde el 1 de abril, «un socio», y desde el 1 de marzo, «varios socios», muestran el plazo cerrado.
+  const abierto1120 = plazo1120Abierto();
   const abierto1065 = plazo1065Abierto();
 
   return (
@@ -95,8 +97,12 @@ export default async function FormulariosLlcPage({
                 </p>
               </div>
 
+              <p className="mt-10 max-w-2xl rounded-2xl bg-tinta p-4 text-sm font-semibold text-arena">
+                {formulariosLlc.avisoPlazo}
+              </p>
+
               <div className="mt-10">
-                <FormulariosLlcForm />
+                <FormulariosLlcForm abierto={abierto1120} />
               </div>
             </>
           }

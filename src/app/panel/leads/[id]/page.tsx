@@ -119,6 +119,11 @@ const CHECKS_FORMULARIOS: [string, string][] = [
   ["datosCorrectos", "Los datos son correctos y completos y soy el responsable de su veracidad"],
 ];
 
+/** Casilla de Términos y Política de devoluciones, con la versión aceptada. Las fichas antiguas no la tienen. */
+function textoTerminos(datos: Record<string, unknown>): string {
+  return datos.aceptaTerminos === true ? `Aceptados · versión ${String(datos.terminosVersion ?? "—")}` : "No consta";
+}
+
 export default async function DetallePage({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await sesionActual();
   if (!sesion) redirect("/panel/login");
@@ -230,6 +235,7 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                 {CHECKS_FORMULARIOS.map(([clave, etiqueta]) => (
                   <Fila key={clave} k={etiqueta} v={lead.datos[clave] === true ? "Marcado" : "No"} />
                 ))}
+                <Fila k="Términos y Condiciones" v={textoTerminos(lead.datos)} />
               </dl>
               <p className="mt-4 text-xs text-tinta/55">
                 {textoPago(lead)}
@@ -259,6 +265,7 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                 {CHECKS_1065.map(([clave, etiqueta]) => (
                   <Fila key={clave} k={etiqueta} v={lead.datos[clave] === true ? "Marcado" : "No"} />
                 ))}
+                <Fila k="Términos y Condiciones" v={textoTerminos(lead.datos)} />
               </dl>
               <p className="mt-4 text-xs text-tinta/55">{textoPago(lead)}</p>
             </section>
@@ -275,6 +282,7 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                 {CHECKS_CIERRE.map(([clave, etiqueta]) => (
                   <Fila key={clave} k={etiqueta} v={lead.datos[clave] === true ? "Marcado" : "No"} />
                 ))}
+                <Fila k="Términos y Condiciones" v={textoTerminos(lead.datos)} />
               </dl>
               <p className="mt-4 text-xs text-tinta/55">
                 {textoPago(lead)}
@@ -332,10 +340,7 @@ export default async function DetallePage({ params }: { params: Promise<{ id: st
                     </div>
                   );
                 })}
-                <Fila
-                  k="Términos y Condiciones"
-                  v={alta.datos.aceptaTerminos === true ? `Aceptados · versión ${String(alta.datos.terminosVersion ?? "—")}` : "No"}
-                />
+                <Fila k="Términos y Condiciones" v={textoTerminos(alta.datos)} />
               </dl>
               {lead.datos.tipo !== "llc-1" && !Array.isArray(alta.datos.socios) && (
                 <p className="mt-4 text-xs text-tinta/55">Hay más socios: faltan sus datos.</p>

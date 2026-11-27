@@ -47,7 +47,7 @@ import {
   type ClaveEstadoLlc,
   type PlanApertura,
 } from "@/lib/precios";
-import { CONSENTIMIENTO_VERSION } from "@/lib/privacidad";
+import { ERROR_ACEPTA_TERMINOS, TERMINOS_VERSION } from "@/lib/privacidad";
 import { estadosConstitucion, PLANES_ASISTENTE, requisitos1065 } from "@/lib/site";
 import {
   ETIQUETA_PUNTO,
@@ -80,6 +80,11 @@ const cuerpo = z.object({
   residenteEeuu: z.unknown().optional(),
   alta: z.unknown().optional(),
 });
+
+/** Casilla de Términos y Política de devoluciones: se guarda que se aceptó y qué versión. */
+function terminosAceptados(): { aceptaTerminos: true; terminosVersion: string } {
+  return { aceptaTerminos: true, terminosVersion: TERMINOS_VERSION };
+}
 
 export type DatosLead = {
   origen: OrigenLead;
@@ -297,7 +302,7 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
               alta: {
                 ...alta,
                 facturacionEtiqueta: FACTURACION[alta.facturacion],
-                terminosVersion: CONSENTIMIENTO_VERSION,
+                terminosVersion: TERMINOS_VERSION,
               },
               altaCompleta: true,
             }
@@ -311,7 +316,7 @@ export function validarEmpezar(body: unknown): { errores: Record<string, string>
                 gestionEtiqueta: GESTION[altaSocios.gestion],
                 repartoEtiqueta: REPARTO[altaSocios.reparto],
                 facturacionEtiqueta: FACTURACION[altaSocios.facturacion],
-                terminosVersion: CONSENTIMIENTO_VERSION,
+                terminosVersion: TERMINOS_VERSION,
               },
               altaCompleta: true,
             }
@@ -470,6 +475,7 @@ export function validarFormulariosLlc(
     if (raw[clave] !== true) errores[clave] = error;
   }
   if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
+  if (raw.aceptaTerminos !== true) errores.aceptaTerminos = ERROR_ACEPTA_TERMINOS;
   if (Object.keys(errores).length) return { errores };
 
   return {
@@ -502,6 +508,7 @@ export function validarFormulariosLlc(
         unicoSocio: true,
         resideFuera: true,
         datosCorrectos: true,
+        ...terminosAceptados(),
         idServicio: ID_FORMULARIOS_1120,
         pagoOnline: enlacePago(ID_FORMULARIOS_1120) != null,
       },
@@ -595,6 +602,7 @@ export function validarCierreLlc(body: unknown): { errores: Record<string, strin
   if (raw.confirmaAlDia !== true) errores.confirmaAlDia = "Debes confirmar que tu LLC está al día.";
   if (raw.aceptaPrecio !== true) errores.aceptaPrecio = "Debes confirmar que entiendes el precio.";
   if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
+  if (raw.aceptaTerminos !== true) errores.aceptaTerminos = ERROR_ACEPTA_TERMINOS;
   if (Object.keys(errores).length) return { errores };
 
   const estadoOk = estado as ClaveEstadoLlc;
@@ -629,6 +637,7 @@ export function validarCierreLlc(body: unknown): { errores: Record<string, strin
         datosCorrectos: true,
         confirmaAlDia: true,
         aceptaPrecio: true,
+        ...terminosAceptados(),
       },
     },
   };
@@ -817,6 +826,7 @@ export function validarFormularios1065(
     if (raw[clave] !== true) errores[clave] = error;
   }
   if (raw.consentimiento !== true) errores.consentimiento = "Necesitamos tu consentimiento.";
+  if (raw.aceptaTerminos !== true) errores.aceptaTerminos = ERROR_ACEPTA_TERMINOS;
   if (Object.keys(errores).length) return { errores };
 
   const numSocios = socios.length;
@@ -853,6 +863,7 @@ export function validarFormularios1065(
         datosCorrectos: true,
         ningunoEeuuConfirma: true,
         sociosAceptan: true,
+        ...terminosAceptados(),
         precio: `${numSocios} socios · ${dolares(total)}`,
         precioTotal: total,
         idServicio: id,

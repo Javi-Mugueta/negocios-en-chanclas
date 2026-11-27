@@ -4,17 +4,20 @@ import { agente, hashIp, ipDeLaPeticion } from "@/lib/ip";
 import { insertarLead, LimiteConsultasError } from "@/lib/leads";
 import { json } from "@/lib/sesion";
 import { esHoneypot, validarFormulariosLlc } from "@/lib/validacion";
-import { formulariosAbiertos } from "@/lib/visibilidad";
+import { formulariosLlc } from "@/lib/site";
+import { formulariosAbiertos, plazo1120Abierto } from "@/lib/visibilidad";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * Datos para los formularios de la LLC (pasaporte, EIN, importes).
+ * Desde la fecha límite (1 de abril) no se admite: se comprueba aquí, con la hora del servidor.
  * Nada de lo recibido se escribe en los logs: solo el tipo de error.
  */
 export async function POST(request: Request) {
   if (!formulariosAbiertos()) return json({ ok: false, error: "No encontrado." }, 404);
+  if (!plazo1120Abierto()) return json({ ok: false, error: formulariosLlc.plazoCerrado }, 410);
 
   let body: unknown;
   try {

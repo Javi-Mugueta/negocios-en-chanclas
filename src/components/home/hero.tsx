@@ -32,25 +32,25 @@ export function Hero() {
 
           <h1 className="mt-7 text-[clamp(2.75rem,7.2vw,6rem)] leading-[0.92] font-extrabold text-tinta animate-in fade-in slide-in-from-bottom-4 duration-700 [animation-delay:80ms] [animation-fill-mode:both]">
             Tu empresa en Estados Unidos,{" "}
-            <span className="relative inline-block font-serif font-normal italic tracking-normal text-chancla">
-              sin quitarte
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 300 20"
-                preserveAspectRatio="none"
-                className="absolute -bottom-1 left-0 h-3 w-full text-sol"
-              >
-                <path
-                  d="M2 14C60 4 120 4 160 9s100 6 136-4"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
-            </span>{" "}
-            <span className="font-serif font-normal italic tracking-normal text-chancla">
-              las chanclas.
+            <span className="font-serif font-normal italic tracking-normal whitespace-nowrap text-chancla">
+              <span className="relative inline-block">
+                en chanclas
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 300 20"
+                  preserveAspectRatio="none"
+                  className="absolute -bottom-1 left-0 h-3 w-full text-sol"
+                >
+                  <path
+                    d="M2 14C60 4 120 4 160 9s100 6 136-4"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </svg>
+              </span>
+              .
             </span>
           </h1>
 
