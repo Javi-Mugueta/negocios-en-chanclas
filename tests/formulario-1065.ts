@@ -34,5 +34,6 @@ export const FORMULARIO_1065_OK = {
   ningunoEeuuConfirma: true,
   sociosAceptan: true,
   consentimiento: true,
+  aceptaTerminos: true,
   pagina: "/formularios-llc?socios=varios",
 };

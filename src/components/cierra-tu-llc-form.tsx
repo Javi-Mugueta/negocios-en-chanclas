@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { CtaLink } from "@/components/brand/cta";
 import { Confirmacion, PagoPorContacto } from "@/components/confirmacion";
 import { Honeypot } from "@/components/honeypot";
+import { RecordatorioTerminos, TextoAceptaTerminos } from "@/components/legal/acepta-terminos";
+import { ENLACE_PRIVACIDAD } from "@/lib/privacidad";
 import { claseSelect } from "@/components/select-class";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,6 +118,7 @@ export function CierraTuLlcForm() {
           confirmaAlDia: data.get("confirmaAlDia") === "on",
           aceptaPrecio: data.get("aceptaPrecio") === "on",
           consentimiento: data.get("consentimiento") === "on",
+          aceptaTerminos: data.get("aceptaTerminos") === "on",
           nec_hp: valor("nec_hp"),
           ...leerAtribucion(),
         }),
@@ -179,6 +182,7 @@ export function CierraTuLlcForm() {
               Pagar {dolares(precioPago.total)}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
             </a>
+            <RecordatorioTerminos oscuro className="mt-4" />
             {emailPago && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(emailPago)}</p>}
           </>
         ) : (
@@ -356,10 +360,13 @@ export function CierraTuLlcForm() {
           <Check name="consentimiento" error={errors.consentimiento}>
             Acepto que Negocios en Chanclas use estos datos para preparar y tramitar el cierre de mi LLC,
             según su{" "}
-            <a href="/legal" className="font-medium text-tinta underline underline-offset-2">
+            <a href={ENLACE_PRIVACIDAD} className="font-medium text-tinta underline underline-offset-2">
               política de privacidad
             </a>
             .
+          </Check>
+          <Check name="aceptaTerminos" error={errors.aceptaTerminos}>
+            <TextoAceptaTerminos />
           </Check>
         </fieldset>
 

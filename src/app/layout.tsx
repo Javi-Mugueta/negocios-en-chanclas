@@ -26,6 +26,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/** Descripción al compartir (og:description y twitter:description) en todas las páginas. */
+const ESLOGAN_COMPARTIR = "Tu empresa en EE. UU., en chanclas.";
+
 export const metadata: Metadata = {
   title: {
     default: "Negocios en Chanclas – Gestión de LLC",
@@ -37,9 +40,14 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://negociosenchanclas.com"),
   openGraph: {
     title: "Negocios en Chanclas – Gestión de LLC",
-    description: "Tu empresa en EE. UU., sin quitarte las chanclas.",
+    description: ESLOGAN_COMPARTIR,
     locale: "es_ES",
     type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Negocios en Chanclas – Gestión de LLC",
+    description: ESLOGAN_COMPARTIR,
   },
 };
 

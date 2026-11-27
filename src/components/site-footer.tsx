@@ -33,6 +33,11 @@ export function SiteFooter({ nav }: { nav: ItemNav[] }) {
                 </li>
               ))}
               <li>
+                <Link className="text-arena/85 transition hover:text-chancla" href="/terminos">
+                  Términos y Condiciones
+                </Link>
+              </li>
+              <li>
                 <Link className="text-arena/85 transition hover:text-chancla" href="/legal">
                   Avisos legales
                 </Link>

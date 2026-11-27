@@ -9,6 +9,7 @@ import { CtaLink } from "@/components/brand/cta";
 import { ChanclaMark } from "@/components/brand/logo";
 import { Confirmacion, PagoPorContacto } from "@/components/confirmacion";
 import { Honeypot } from "@/components/honeypot";
+import { RecordatorioTerminos, TextoAceptaTerminos } from "@/components/legal/acepta-terminos";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -38,6 +39,7 @@ import {
   type Reparto,
 } from "@/lib/alta";
 import { leerAtribucion } from "@/lib/atribucion";
+import { ENLACE_PRIVACIDAD } from "@/lib/privacidad";
 import {
   casoAsistente,
   DESVIOS,
@@ -1301,7 +1303,7 @@ export function FormationWizard({
                   />
                   <span>
                     Acepto que Negocios en Chanclas use estos datos para responder a mi consulta, según su{" "}
-                    <Link href="/legal" className="font-medium text-tinta underline underline-offset-2">
+                    <Link href={ENLACE_PRIVACIDAD} className="font-medium text-tinta underline underline-offset-2">
                       política de privacidad
                     </Link>
                     .
@@ -1567,15 +1569,7 @@ export function FormationWizard({
                       aria-invalid={!!errores.aceptaTerminos}
                     />
                     <span>
-                      {esVarios ? "En nombre de todos los socios, acepto los" : "Acepto los"}{" "}
-                      <Link
-                        href="/legal"
-                        target="_blank"
-                        className="font-medium text-tinta underline underline-offset-2"
-                      >
-                        Términos y Condiciones del servicio de apertura de LLC
-                      </Link>
-                      .
+                      <TextoAceptaTerminos />
                       {errores.aceptaTerminos && (
                         <span className="mt-1 block text-sm font-medium text-destructive">
                           {errores.aceptaTerminos}
@@ -1603,7 +1597,7 @@ export function FormationWizard({
                     <span>
                       Acepto que Negocios en Chanclas use estos datos para preparar {esVarios ? "el alta" : "mi alta"} y
                       responder a {esVarios ? "nuestra" : "mi"} consulta, según su{" "}
-                      <Link href="/legal" className="font-medium text-tinta underline underline-offset-2">
+                      <Link href={ENLACE_PRIVACIDAD} className="font-medium text-tinta underline underline-offset-2">
                         política de privacidad
                       </Link>
                       .
@@ -2054,6 +2048,7 @@ function Resultado({
             />
           ))}
         </div>
+        <RecordatorioTerminos oscuro className="mt-4" />
         {email && <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(email)}</p>}
         <p className="mt-2 max-w-xl text-sm text-arena/60">{avisoPagoApertura}</p>
         {planActual && (
@@ -2121,6 +2116,7 @@ function Resultado({
           {pago ? (
             <>
               <CtaLink href={pago}>Pagar {dolares(precio.total)}</CtaLink>
+              <RecordatorioTerminos oscuro className="mt-4" />
               {email && (
                 <p className="mt-4 max-w-xl text-sm text-arena/85">{avisoEmailPago(email, { vosotros: true })}</p>
               )}

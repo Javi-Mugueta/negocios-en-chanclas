@@ -107,7 +107,7 @@ test("contacto guarda la consulta y el evento, y no la IP", async () => {
   const filas = await estado.db!.query("select email, consentimiento_version, ip_hash, utm, origen from nec.leads");
   expect(filas).toHaveLength(1);
   expect(filas[0].email).toBe("ana@example.com");
-  expect(filas[0].consentimiento_version).toBe("2026-11-25");
+  expect(filas[0].consentimiento_version).toBe("2026-11-27");
   expect(filas[0].origen).toBe("contacto");
   expect(String(filas[0].ip_hash)).not.toContain("203.0.113.8");
   const utm = filas[0].utm;
@@ -318,6 +318,7 @@ const formularioOk = {
   resideFuera: true,
   datosCorrectos: true,
   consentimiento: true,
+  aceptaTerminos: true,
   pagina: "/formularios-llc",
 };
 
@@ -389,6 +390,45 @@ test("formularios LLC valida EIN, nombre de la LLC, estado, importes y las tres 
   expect(filas).toHaveLength(0);
 });
 
+test("formularios LLC (un socio) no admite datos desde el 1 de abril de 2027, con la hora del servidor", async () => {
+  delete process.env.NEC_FORMULARIOS_LAUNCH;
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2027-03-31T21:59:59.000Z"));
+  const aTiempo = await formularios(post("/api/formularios-llc", formularioOk));
+  expect(aTiempo.status).toBe(200);
+  vi.setSystemTime(new Date("2027-03-31T22:00:00.000Z"));
+  const tarde = await formularios(post("/api/formularios-llc", formularioOk, { "x-forwarded-for": "203.0.113.30" }));
+  expect(tarde.status).toBe(410);
+  expect(((await tarde.json()) as { error: string }).error).toBe(
+    "El plazo para este año está cerrado. Escríbenos y vemos qué podemos hacer.",
+  );
+  vi.useRealTimers();
+  expect(await estado.db!.query("select id from nec.leads")).toHaveLength(1);
+});
+
+test("sin aceptar los Términos no se guarda ni se pasa al pago; al aceptarlos se guarda la versión", async () => {
+  delete process.env.NEC_FORMULARIOS_LAUNCH;
+  const casos = [
+    { ruta: "/api/formularios-llc", handler: formularios, cuerpo: formularioOk },
+    { ruta: "/api/formularios-1065", handler: formularios1065, cuerpo: FORMULARIO_1065_OK },
+    { ruta: "/api/cierra-tu-llc", handler: cierre, cuerpo: cierreOk },
+  ] as const;
+  for (const [i, { ruta, handler, cuerpo }] of casos.entries()) {
+    const sin = await handler(post(ruta, { ...cuerpo, aceptaTerminos: false }, { "x-forwarded-for": `203.0.113.${40 + i}` }));
+    expect(sin.status).toBe(422);
+    const { errors } = (await sin.json()) as { errors: Record<string, string> };
+    expect(errors.aceptaTerminos).toBe("Tienes que aceptar los Términos y Condiciones y la Política de devoluciones.");
+    const con = await handler(post(ruta, cuerpo, { "x-forwarded-for": `203.0.113.${50 + i}` }));
+    expect(con.status).toBe(200);
+  }
+  const filas = await estado.db!.query("select datos from nec.leads");
+  expect(filas).toHaveLength(3);
+  for (const fila of filas) {
+    const datos = (typeof fila.datos === "string" ? JSON.parse(fila.datos) : fila.datos) as Record<string, unknown>;
+    expect(datos).toMatchObject({ aceptaTerminos: true, terminosVersion: "2026-11-27" });
+  }
+});
+
 test("Form 1065 guarda la LLC y los socios sin escribirlos en el log", async () => {
   delete process.env.NEC_FORMULARIOS_LAUNCH;
   const log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -443,6 +483,7 @@ const cierreOk = {
   confirmaAlDia: true,
   aceptaPrecio: true,
   consentimiento: true,
+  aceptaTerminos: true,
   pagina: "/cierra-tu-llc",
 };
 

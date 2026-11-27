@@ -165,6 +165,11 @@ export const formulariosLlc = {
   /** Plan NEC-401 de Whop. */
   pago: enlacePago(ID_FORMULARIOS_1120)!,
   avisoPago: AVISO_LEAVING,
+  avisoPlazo: "El IRS cierra el 15 de abril. Para presentarlo a tiempo, necesitamos tus datos antes del 1 de abril.",
+  plazoCerrado: "El plazo para este año está cerrado. Escríbenos y vemos qué podemos hacer.",
+  /** Fecha límite para recibir los datos (hora de Madrid), ejercicio 2026. Se comprueba en el servidor. */
+  fechaLimite: "2027-04-01T00:00",
+  mensajeContacto: "Mi LLC tiene un socio y necesito los formularios 1120/5472.",
 };
 
 /** Formularios de varios socios: Form 1065 + K-1 (`formularios-1065.md`). */
@@ -319,7 +324,7 @@ export const checklistPresentacion = [
     items: [
       "Dinero que has sacado de la LLC para ti",
       "Dinero que has transferido tú a la LLC",
-      "Saldo total de las cuentas de la LLC a 31 de diciembre",
+      "Saldo total de las cuentas de la LLC a 31 de diciembre (y si tienes cripto con tu LLC, valor total en USD a 31 de diciembre)",
     ],
   },
 ];

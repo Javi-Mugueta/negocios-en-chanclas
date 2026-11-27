@@ -89,8 +89,8 @@ test("el cuerpo incluye fecha en Madrid, todos los datos de alta, enlaces y el a
   expect(texto).toContain("Alta · País de residencia: España");
   expect(texto).toContain("Alta · Facturación anual esperada: Menos de 25.000 $");
   expect(texto).not.toContain("Pasaporte");
-  expect(texto).toContain("Alta · Términos aceptados: Sí");
-  expect(texto).toContain("Alta · Versión de los términos: ");
+  expect(texto).toContain("Alta · Términos y Política de devoluciones aceptados: Sí");
+  expect(texto).toContain("Alta · Versión de los términos: 2026-11-27");
   expect(texto).toContain("Datos de alta completos: Sí");
   expect(texto).toContain(avisoPago("NEC-201"));
   expect(texto).toContain("ID de servicio (plan de Whop): NEC-201");

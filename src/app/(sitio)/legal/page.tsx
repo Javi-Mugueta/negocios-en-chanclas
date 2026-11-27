@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Eyebrow } from "@/components/brand/cta";
-import { CONSENTIMIENTO_VERSION } from "@/lib/privacidad";
+import { PoliticaDevoluciones, TerminosYCondiciones } from "@/components/legal/terminos";
+import { CONSENTIMIENTO_VERSION, TERMINOS_VERSION } from "@/lib/privacidad";
 import { contacto } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -18,31 +19,47 @@ export default function LegalPage() {
       <Eyebrow>Avisos legales</Eyebrow>
       <h1 className="mt-5 text-5xl leading-[0.95] font-extrabold md:text-6xl">Lo legal, a la vista.</h1>
       <p className="mt-6 text-lg text-tinta/70">
-        Esta política explica qué hace Negocios en Chanclas con los datos que nos dejas en la web.
-        Versión {CONSENTIMIENTO_VERSION}.
+        Las condiciones con las que contratas nuestros servicios, cuándo hay devolución y qué hacemos
+        con los datos que nos dejas en la web.
       </p>
+      <nav aria-label="Documentos legales" className="mt-8">
+        <ul className="flex flex-wrap gap-2 text-sm">
+          {[
+            ["#terminos", "Términos y Condiciones"],
+            ["#devoluciones", "Política de devoluciones"],
+            ["#privacidad", "Política de privacidad"],
+          ].map(([href, label]) => (
+            <li key={href}>
+              <a
+                href={href}
+                className="block rounded-full border border-tinta/10 bg-card px-4 py-2 text-tinta/75 transition hover:text-tinta"
+              >
+                {label}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-sm text-tinta/60">
+          Términos y devoluciones: versión {TERMINOS_VERSION} (también en{" "}
+          <Link href="/terminos" className="underline underline-offset-4">
+            /terminos
+          </Link>
+          ). Privacidad: versión {CONSENTIMIENTO_VERSION}.
+        </p>
+      </nav>
 
-      <div className="mt-12 space-y-10 text-lg leading-relaxed text-tinta/75">
-        <section id="privacidad" className="space-y-4">
+      <div className="mt-12 space-y-14 text-lg leading-relaxed text-tinta/75">
+        <TerminosYCondiciones />
+        <PoliticaDevoluciones />
+
+        <section id="privacidad" className="scroll-mt-28 space-y-4">
           <h2 className="text-2xl font-bold text-tinta">Política de privacidad</h2>
           <p>
             Negocios en Chanclas trata los datos que envías desde el formulario de contacto, desde
             el asistente de «Empieza aquí» y desde los formularios de sus servicios. El responsable
-            del tratamiento es la persona o sociedad que opera la marca.
+            del tratamiento es <strong>Leaving Vorkuta LLC</strong>, 4300 Ridgecrest Dr SE, Suite L
+            #532, Rio Rancho, NM 87124, EE. UU. (EIN 36-5069633).
           </p>
-          {MOSTRAR_PENDIENTES && (
-            <ul className="space-y-2 rounded-3xl border border-chancla/30 bg-chancla/10 p-5 text-base text-tinta">
-              <li>
-                <strong>TODO (Javier):</strong> razón social o nombre legal del responsable.
-              </li>
-              <li>
-                <strong>TODO (Javier):</strong> NIF o CIF.
-              </li>
-              <li>
-                <strong>TODO (Javier):</strong> domicilio a efectos legales.
-              </li>
-            </ul>
-          )}
           <p>
             Puedes escribirnos por el{" "}
             <Link href="/contacto" className="font-semibold text-tinta underline underline-offset-4">
@@ -123,15 +140,6 @@ export default function LegalPage() {
             derivado que no permite recuperarla. La conexión con la base de datos va cifrada.
           </p>
           <p>Versión de esta política: {CONSENTIMIENTO_VERSION}. Es la que queda asociada a cada envío.</p>
-        </section>
-
-        <section id="devoluciones">
-          <h2 className="text-2xl font-bold text-tinta">Devoluciones y reembolsos</h2>
-          <p className="mt-3">
-            En diseño web y tiendas online tienes 30 días para solicitar el reembolso si el proyecto
-            final no responde a tus necesidades. El pago de esos proyectos es del 50&nbsp;% al
-            empezar y del 50&nbsp;% al terminar.
-          </p>
         </section>
       </div>
     </section>

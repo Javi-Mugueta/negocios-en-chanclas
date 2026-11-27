@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { formularios1065 } from "@/lib/site";
+import { formularios1065, formulariosLlc } from "@/lib/site";
 
 /**
  * /formularios-llc está a la vista por defecto.
@@ -72,6 +72,15 @@ export function formulariosAbiertos(ahora: Date = new Date()): boolean {
  * Desde ese momento la opción «Tiene varios socios» muestra el aviso de plazo cerrado.
  */
 export function plazo1065Abierto(ahora: Date = new Date(), limite: string = formularios1065.fechaLimite): boolean {
+  const fin = leerLanzamiento(limite);
+  return !!fin && ahora.getTime() < fin.getTime();
+}
+
+/**
+ * Formularios 1120/5472 (un socio): se admiten datos hasta la fecha límite (1 de abril, hora de Madrid).
+ * Desde ese momento la opción «Mi LLC tiene un socio» muestra el aviso de plazo cerrado.
+ */
+export function plazo1120Abierto(ahora: Date = new Date(), limite: string = formulariosLlc.fechaLimite): boolean {
   const fin = leerLanzamiento(limite);
   return !!fin && ahora.getTime() < fin.getTime();
 }

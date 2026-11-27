@@ -49,7 +49,7 @@ import {
   precioRenovacion,
 } from "@/lib/precios";
 import { avisoEmailPago, avisosContacto, estadosConstitucion, formulariosLlc, navegacion, planes } from "@/lib/site";
-import { formulariosAbiertos, leerLanzamiento, plazo1065Abierto } from "@/lib/visibilidad";
+import { formulariosAbiertos, leerLanzamiento, plazo1065Abierto, plazo1120Abierto } from "@/lib/visibilidad";
 
 process.env.NEC_IP_SALT = "sal-de-prueba-nec";
 process.env.NEC_SESSION_SECRET = "secreto-de-sesion-de-prueba-32chars";
@@ -432,6 +432,18 @@ describe("contenido", () => {
     expect(plazo1065Abierto(new Date("2027-02-28T22:59:59Z"))).toBe(true);
     expect(plazo1065Abierto(new Date("2027-02-28T23:00:00Z"))).toBe(false);
     expect(plazo1065Abierto(new Date("2027-03-15T10:00:00Z"))).toBe(false);
+  });
+
+  test("los 1120/5472 admiten datos hasta el 1 de abril de 2027 (hora de Madrid)", () => {
+    expect(formulariosLlc.fechaLimite).toBe("2027-04-01T00:00");
+    expect(plazo1120Abierto(new Date("2026-11-27T12:00:00Z"))).toBe(true);
+    // 1 de abril: Madrid ya está en horario de verano (UTC+2).
+    expect(plazo1120Abierto(new Date("2027-03-31T21:59:59Z"))).toBe(true);
+    expect(plazo1120Abierto(new Date("2027-03-31T22:00:00Z"))).toBe(false);
+    expect(plazo1120Abierto(new Date("2027-04-10T10:00:00Z"))).toBe(false);
+    expect(formulariosLlc.avisoPlazo).toBe(
+      "El IRS cierra el 15 de abril. Para presentarlo a tiempo, necesitamos tus datos antes del 1 de abril.",
+    );
   });
 
   test("contacto muestra aviso para C-Corp y encargo personalizado", () => {
